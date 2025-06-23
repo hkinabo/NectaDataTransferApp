@@ -1,0 +1,100 @@
+﻿@using NectaDataTransfer.Shared.Models
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+<EditForm Context="mycc" Model="@model2" OnValidSubmit="@HandleValidSubmit" id="Sqlfomu">
+    <DataAnnotationsValidator />
+    <FluentCard Class="demo-form">
+           <FluentStack   Orientation="Orientation.Vertical" VerticalGap="2">
+            <FluentTextField Id="txtserver" Style="width=10%" Label="SQL Server / IP address" @bind-Value="@_host2" For="@(() => model2.Host)" />
+            <FluentNumberField Id="nmbPort" Class="mt-2" Label="Port" @bind-Value="@_port2" For="@(() => model2.Port)" />
+            <FluentTextField Id="txtUser" Class="mt-2" Label="Username" @bind-Value="@_username2" For="@(() => model2.Username)" />
+            <FluentTextField Id="txtPwd" Class="mt-2" Label="Password" @bind-Value="@_pwd2" For="@(() => model2.Password)" TextFieldType="@PasswordInput" />
+<FluentSpacer></FluentSpacer>
+            <FluentButton @key="mykee" FormId="Sqlfomu" Loading="@isLoad" Id="btnSave" Class="save" Appearance="Appearance.Accent" Type="ButtonType.Submit">Connect</FluentButton>
+            
+        </FluentStack>
+    </FluentCard>
+
+</EditForm>
+
+@code {
+
+    [Parameter]
+    public string _host2 { get; set; }
+
+    [Parameter]
+    public int _port2 { get; set; }
+
+    [Parameter]
+    public string _username2 { get; set; }
+
+    [Parameter]
+    public string _pwd2 { get; set; }
+    [Parameter]
+    public SqlModel model2 { get; set; }
+    [Parameter]
+    public EventCallback<SqlModel> OnValidSubmit { get; set; }
+    private bool isLoad = false;
+    Guid mykee;
+    bool isShow;
+
+    TextFieldType PasswordInput = TextFieldType.Password;
+    Icon PasswordInputIcon = new Icons.Regular.Size16.EyeOff();
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            mykee = @Guid.NewGuid();
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        isLoad=true;
+        await Task.Delay(1000);
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            model2.Host = _host2;
+            model2.Port = _port2;
+            model2.Username = _username2;
+            model2.Password = _pwd2;
+            await OnValidSubmit.InvokeAsync(model2);
+        }
+        finally
+        {
+            isLoad = false;
+            await InvokeAsync(StateHasChanged);
+        }
+
+        
+       
+    }
+    
+    void ButtonTestclick()
+    {
+        @if (isShow)
+        {
+            isShow = false;
+            PasswordInputIcon = new Icons.Regular.Size24.EyeOff();
+            PasswordInput = TextFieldType.Password;
+        }
+        else
+        {
+            isShow = true;
+            PasswordInputIcon = new Icons.Regular.Size24.Eye();
+            PasswordInput = TextFieldType.Text;
+        }
+    }
+    // private async Task OnEnterKeyEvent(KeyboardEventArgs e)
+    // {
+    //     if (e.Code == "Enter")
+    //     {
+    //         await HandleValidSubmit();
+    //         // _pwd2 = ""; // Clear input after save
+    //     }
+    // }
+}
+

@@ -1,0 +1,1561 @@
+﻿@page "/sifadestination"
+
+@using System.Security;
+@using System.Data.SqlClient
+@using NectaDataTranferApp.Components.ComponetServer
+
+
+@inject NavigationManager NavManager
+@inject ISifaConnectionService SifaConnectionService;
+@inject ISifaTransferOption SifaTransferService;
+@inject ISifaService SifaService;
+@inject IOlevelService OlevelService;
+@inject IDialogService _dialogService;
+@inject ISifaTransferOption SifaTransferService;
+@inject SessionService sessionservice
+<FluentToastProvider />
+<FluentDialogProvider />
+<FluentTooltipProvider />
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+
+<FluentGrid Elevation="5" Class="mt-5">
+    <FluentLabel Typo="Typography.Header" Style="margin-top:20px"> Destination To Sifa DB</FluentLabel>
+    <FluentCard  Style="height:100%;margin-top:10px">
+        <FluentStack Class="mt-50" VerticalGap="5" Orientation="Orientation.Horizontal">
+            <FluentStack hidden="@isloginhidden" VerticalGap="20" Orientation="Orientation.Vertical">
+                <FluentGridItem Class="mt-4" xs="12" sm="6" md="12">
+                    <FluentCombobox  @bind-Value="@datasource" TOption="string" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+                        <FluentOption Value="@("MySql")"></FluentOption>
+                    </FluentCombobox>
+                </FluentGridItem>
+                <MysqlEditFormComp model2="@ModelToEdit" _host2=@ModelToEdit.Host _port2=@ModelToEdit.Port _username2=@ModelToEdit.Username _pwd2=@ModelToEdit.Password OnValidSubmit="OnValidSubmit"></MysqlEditFormComp>
+            </FluentStack>
+            <FluentStack hidden="@ishidden" VerticalGap="20" Orientation="Orientation.Vertical">
+                <FluentGridItem xs="12" sm="6" md="12">
+                    @if (mysqldatabases != null)
+                    {
+                        <FluentCombobox Required="true" Id="cmbSourceMysqlDB" Height="250px" Autocomplete="ComboboxAutocomplete.Both" @bind-Value="@datasourceDB" FullWidth="false" TOption="string" Label="Sifa Database">
+                            @foreach (var dblist in mysqldatabases)
+                            {
+                                <FluentOption Value="@dblist.MysqlDatabase">@dblist.MysqlDatabase</FluentOption>
+                            }
+                        </FluentCombobox>
+                    }
+                </FluentGridItem>
+                <FluentGridItem Class="mt-2" xs="12" sm="6" md="12">
+                    <FluentRadioGroup Style="margin-top:10px; width:100%; border: 1px solid var(--accent-fill-rest)" @bind-Value="@transferOption">
+                        <FluentRadio Disabled="true" Value="@("1")">First Insert</FluentRadio>
+                        <FluentRadio Disabled="true" Value="@("2")">Update</FluentRadio>
+                        <FluentRadio Disabled="true" Value="@("3")">Add New with Result (eg PSLE repeater/ACSEE from Ualimu)</FluentRadio>
+                        <FluentRadio Disabled="true" Value="@("4")">Changed Names from StoreDB</FluentRadio>
+                        <FluentRadio Disabled="true" Value="@("5")">Results after payment of Fee</FluentRadio>
+                        <FluentRadio Disabled="true" Value="@("8")">Add New no Result(eg SFNA failer)</FluentRadio>
+                    </FluentRadioGroup>
+
+                </FluentGridItem>
+                @if (@transferOption == "4")
+                {
+                    <FluentGridItem Class="mt-2" xs="12" sm="6" md="12">
+                        <div style="height: 200px; width:auto; margin-top:15px; overflow-x:auto;">
+                            <FluentDataGrid Id="dgridNames" Items="@names2" Style="height=100%;width=720px;" ShowHover="true" TGridItem="SifaNameModel">
+                                <PropertyColumn  Width="110px" Property="@(p => p.ExamNumber)" Title="Number" />
+                                <PropertyColumn Width="80px" Property="@(p => p.ExamYear)" Title="Year" />
+                                <PropertyColumn Width="100px" Property="@(p => p.ExamName)" Title="Type" />
+                                <PropertyColumn Width="120px" Property="@(p => p.Fname)" Title="Fname" />
+                                <PropertyColumn Width="120px" Property="@(p => p.Oname)" Title="Mname" />
+                                <PropertyColumn Width="120px" Property="@(p => p.Sname)" Title="Sname" />
+                                <PropertyColumn Width="70px" Property="@(p => p.Sex)" Title="Sex" />
+                                <PropertyColumn Width="150px" Property="@(p => p.SifaTable)" Title="SifaTable" />
+                            </FluentDataGrid>
+                            <FluentPaginator State="@pagination">
+                                <SummaryTemplate>
+                                    There are <strong>@(pagination.TotalItemCount ?? 0)</strong> rows
+                                </SummaryTemplate>
+                                <PaginationTextTemplate>
+                                    This is page <strong>@(pagination.CurrentPageIndex + 1)</strong> out of a total of <strong>@(pagination.LastPageIndex + 1)</strong> pages
+                                </PaginationTextTemplate>
+                            </FluentPaginator>
+                        </div>
+                    </FluentGridItem>
+                }
+                else if (@transferOption == "5")
+                {
+                    <FluentGridItem  Class="mt-2" xs="12" sm="6" md="12">
+                        <div style="height: 200px; width:auto; margin-top:15px; overflow-x:auto;">
+                            <FluentDataGrid Id="dgridFee" Items="@names2" Style="height=100%;width=700px;" ShowHover="true" TGridItem="SifaNameModel">
+                                <PropertyColumn Width="110px" Property="@(p => p.ExamNumber)" Title="Number" />
+                                <PropertyColumn Width="80px" Property="@(p => p.ExamYear)" Title="Year" />
+                                <PropertyColumn Width="100px" Property="@(p => p.ExamName)" Title="Type" />
+                                <PropertyColumn Width="250px" Property="@(p => p.Fname)" Title="Full Name" />
+                                <PropertyColumn Width="150px" Property="@(p => p.SifaTable)" Title="SifaTable" />
+                            </FluentDataGrid>
+                            <FluentPaginator State="@pagination">
+                                <SummaryTemplate>
+                                    There are <strong>@(pagination.TotalItemCount ?? 0)</strong> rows
+                                </SummaryTemplate>
+                                <PaginationTextTemplate>
+                                    This is page <strong>@(pagination.CurrentPageIndex + 1)</strong> out of a total of <strong>@(pagination.LastPageIndex + 1)</strong> pages
+                                </PaginationTextTemplate>
+                            </FluentPaginator>
+                        </div>
+                    </FluentGridItem>
+                }
+                else
+                {
+                    <FluentGridItem Class="mt-4" xs="12" sm="6" md="12">
+
+                        <FluentDatePicker Id="tmpYear" Label="@_helptxt"  ReadOnly="true" @bind-Value="@_year" View="CalendarViews.Years" />
+                        <FluentTooltip Anchor="tmpYear" HideTooltipOnCursorLeave="true" Position=TooltipPosition.End Delay=200>@_helptxt</FluentTooltip>
+
+                    </FluentGridItem>
+                }
+                <FluentGridItem Class="mt-4" xs="12" sm="6" md="12">
+
+                    <FluentButton Loading="@isLoading" @onclick="TransferData" IconEnd="@(new Icons.Regular.Size20.ArrowCircleRight())" Appearance="Appearance.Accent">
+                        @if (@transferOption == "1")
+                        {
+                            <FluentLabel Color="Color.Fill">Transfer to Sifa</FluentLabel>
+
+                        }
+                        else if (@transferOption == "3")
+                        {
+                            <FluentLabel Color="Color.Fill">Add New to Sifa</FluentLabel>
+
+                        }
+                        else if (@transferOption == "4")
+                        {
+                            <FluentLabel Color="Color.Fill">Update Names to Sifa</FluentLabel>
+
+                        }
+                        else if (@transferOption == "5")
+                        {
+                            <FluentLabel Color="Color.Fill">Update Fee Results to Sifa</FluentLabel>
+                        }
+                        else
+                        {
+                            <FluentLabel Color="Color.Fill">Update to Sifa</FluentLabel>
+                        }
+                    </FluentButton>
+
+                </FluentGridItem>
+
+                <FluentGridItem Class="mt-8" xs="12" sm="6" md="12">
+                    <div style="display: flex; align-items: center;">
+                        <FluentProgress Style="width: 300px; flex: 1; margin-right: 10px;" Stroke="ProgressStroke.Large" Value="@(indetermin ? null :@Valueregion)" Max="@_maxvalueregion" Rounded="true">
+                        </FluentProgress>
+                        <FluentLabel Color="Color.Error" Style="width: 80px;"><b>@_regpercentregion%</b></FluentLabel>
+                    </div>
+                </FluentGridItem>
+                <FluentGridItem Class="mt-2" xs="12" sm="6" md="12">
+                    @if (_regpercentregion == 100)
+                    {
+                        <FluentLabel>Data: @regiondisplay </FluentLabel>
+                    }
+                    else
+                    {
+                        <FluentLabel>Data : @regiondisplay </FluentLabel>
+                    }
+                </FluentGridItem>
+
+                @if (@transferOption != "4")
+                {
+                    <FluentGridItem Class="mt-8" xs="12" sm="6" md="12">
+                        <div style="display: flex; align-items: center;">
+                            <FluentProgress Style="width: 300px; flex: 1; margin-right: 10px;" Stroke="ProgressStroke.Large" Value="@(indeterminresult ? null :@Value)" Max="@_maxvalue" Rounded="true"></FluentProgress>
+                            <FluentLabel Color="Color.Error" Style="width: 80px;"><b> @_regpercent%</b></FluentLabel>
+                        </div>
+                    </FluentGridItem>
+                    <FluentGridItem Class="mt-2" xs="12" sm="6" md="12">
+
+                        @if (_regpercent == 100 && _regpercentregion == 100)
+                        {
+                            <FluentLabel>Candidates Transfered : @displaydetail  </FluentLabel>
+                        }
+                        else
+                        {
+                            <FluentLabel>Current  : @displaydetail </FluentLabel>
+                        }
+                    </FluentGridItem>
+                }
+                <FluentGridItem Class="mt-2" xs="12" sm="6" md="12">
+                    <div style="height: 200px; width:550px; margin-top:15px; overflow-x:auto;">
+                        <FluentDataGrid Id="dgridAlllist" Items="@dlist" Style="height=100%; width:450px;" ResizableColumns="false">
+                            <PropertyColumn Width="150px" Property="@(p=>p.Code)" Sortable="true" />
+                            <PropertyColumn Width="140px" Property="@(p=>p.Records_Subj)" Sortable="true" />
+                            <PropertyColumn Width="400px" Property="@(p=>p.Status)" Sortable="false" />
+                        </FluentDataGrid>
+                    </div>
+                </FluentGridItem>
+            </FluentStack>
+        </FluentStack>
+    </FluentCard>
+</FluentGrid>
+
+@code {
+    [Parameter]
+    public int id { get; set; }
+    bool ishidden = true;
+    bool isloginhidden = false;
+    private SqlConnection? connection;
+    private string datasource = "MySql";
+    private string datasourceDB = "";
+    private int _port = 3306;
+    string? pconnstrMysql;
+    private string _host = "192.168.10.8";
+    private string _username = "matokeo";
+    private string _pwd = "";
+    //private string _host = "192.168.20.17";
+    //private string _username = "kinabo";
+    //private string _pwd = "Knecta*2019";
+
+    public string transferOption { get; set; } = string.Empty;
+    MysqlModel model = new();
+    private int _connId;
+    private string? _connectionName;
+    private string? _connectionString;
+    private List<SifaMysqlDatabaseModel> mysqldatabases = new();
+    private List<SifaParticularModel> pcdata = new();
+    private List<MysqlParticularModel> mysqlpcdata = new();
+    private List<SifaResultModel> rpdata = new();
+    private List<ResultModel> rdata = new();
+    private List<CentreModel> cdata = new();
+    private List<CentreModel> cedata = new();
+    private List<SubjectModel> sdata = new();
+    private List<GradeModel> gdata = new();
+    private List<TypeModel> tdata = new();
+    private List<QtvalueModel> qdata = new();
+    private List<TransferOptionModel> transferOptions = new();
+    private List<TransferLogModel> transferOptionDB = new();
+    private bool _disposed;
+    public int Value { get; set; }
+    public int _regpercent { get; set; }
+    private string? displaydetail;
+    private int _maxvalue;
+    public int Valueregion { get; set; }
+    public int _regpercentregion { get; set; }
+    private string? regiondisplay;
+    private int _maxvalueregion;
+    private int TotalCandidate;
+    private int TotalData;
+    string[] headings = { "Code", "Records/SubjCode", "Status" };
+    record DataListModel(Guid Id,string Code, string Records_Subj, string Status);
+    private IQueryable<DataListModel>? dlist;
+    private List<DataListModel> datalists = new();
+    List<String> rows = new List<String>();
+    DateTime? _year;
+    bool indetermin = false;
+    bool isLoading = false;
+    bool indeterminresult = false;
+
+    private string? _yearselected;
+    string? _helptxt;
+    private MysqlModel ModelToEdit = new();
+
+    string loginmesseage = "";
+    private UserDto user2;
+    private UserDto user1;
+
+    // private MudTable<SifaNameModel> _table;
+    private List<SifaNameModel> names = new List<SifaNameModel>();
+    private IQueryable<SifaNameModel>? names2;
+    // private IQueryable<SifaNameModel>? dnamelist;
+    private HashSet<SifaNameModel> selectedItems = new HashSet<SifaNameModel>();
+    private bool _selectOnRowClick = false;
+    PaginationState pagination = new PaginationState { ItemsPerPage = 10 };
+
+
+    //ALTER USER 'user'@'host' IDENTIFIED WITH mysql_native_password BY 'password';
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        user2 = await sessionservice.GetUserSession("user2");
+        if (user2 != null)
+        {
+            user1 = await sessionservice.GetUserSession("user1");
+            isloginhidden = true;
+            await GetSourceDatabase();
+            await GetTransferOption(user1.UserName);
+            await GetSourceYear();
+            ishidden = false;
+            StateHasChanged();
+        }
+        else
+        {
+            ModelToEdit.Host = _host;
+            ModelToEdit.Port = _port;
+            ModelToEdit.Username = _username;
+            ModelToEdit.Password = _pwd;
+        }
+
+    }
+
+    private async Task SetSessionUser(string sessionkey, string uname, string menukey)
+    {
+        var user = new UserDto();
+        user.UserName = uname;
+        user.MenuKey = menukey;
+        await sessionservice.SetUserSession(sessionkey, user);
+
+    }
+
+    private async Task OnValidSubmit(MysqlModel cmodel)
+    {
+        _host = ModelToEdit.Host;
+        _port = ModelToEdit.Port;
+        _username = ModelToEdit.Username;
+        _pwd = ModelToEdit.Password;
+
+        pconnstrMysql = "Server=" + _host + ";" + "Port=" + _port + ";" + "Database=" + datasourceDB + ";" + "UserId=" + _username + ";" + "Password=" + _pwd + ";Charset=latin1;allowLoadLocalInfile=true;ConnectionTimeout = 5;sslmode=DISABLED;SslMode=None;Allow User Variables=True;";
+
+        if (OpenConnSql(pconnstrMysql))
+        {
+            int response = -1;
+            _connId = 0;
+            _connectionName = "mysql";
+            _connectionString = pconnstrMysql;
+
+            // To check if Sqlite has connection string
+            await GetConnectionId(_connectionName, _username);
+
+            SifaConnectionModel conMod = new()
+                {
+                    Id = _connId,
+                    Name = _connectionName,
+                    ConnectionString = Setting.EncryptionMe(_connectionString),
+                    Username = _username,
+                    Host = _host,
+                    Pwd = Setting.EncryptionMe(_pwd),
+                    Port = _port
+                };
+
+            await SetSessionUser("user2", _username, "4");
+
+            if (_connId > 0)
+            {
+                //Update Connection string
+                response = await SifaConnectionService.UpdateConnection(conMod);
+            }
+            else
+            {
+                response = await SifaConnectionService.AddConnection(conMod);
+
+            }
+            snackBar.ShowSuccess("Connection Successful.", 1000);
+            user2 = await sessionservice.GetUserSession("user2");
+            user1 = await sessionservice.GetUserSession("user1");
+            StateHasChanged();
+            await GetSourceDatabase();
+            await GetTransferOption(user1.UserName);
+            await GetSourceYear();
+            ishidden = false;
+            isloginhidden = true;
+            StateHasChanged();
+
+        }
+        else
+        {
+            return;
+
+        }
+    }
+    private async ValueTask GetSourceDatabase()
+    {
+        mysqldatabases = await SifaService.GetMysqlDatabases(user2.UserName);
+
+        var query2 = from element in mysqldatabases
+                     where element.MysqlDatabase != "" && element.MysqlDatabase != "api"
+                     select element.MysqlDatabase;
+
+        datasourceDB = query2.FirstOrDefault();
+
+        StateHasChanged();
+
+    }
+
+    private async Task GetSourceYear()
+    {
+
+        var usname = user1.UserName;
+        if (transferOption != "4" && transferOption != "5")
+        {
+            var mycsvid = await OlevelService.GetYear(usname);
+
+            if (mycsvid != null)
+
+            {
+
+                _yearselected = mycsvid.YearSelected;
+                _helptxt = string.Format("Exam Year For Sifa tables of {0}, eg tbl_{0}_particulars,tbl_{0}_results", _yearselected);
+                DateTime date = new DateTime(Convert.ToInt32(_yearselected), 1, 1);
+                _year = date;
+                StateHasChanged();
+            }
+            else
+            {
+                snackBar.ShowWarning("Please get source data first!", 4000);
+                return;
+            }
+        }
+    }
+
+    private async Task GetTransferOption(string uname)
+    {
+
+        var topt = await SifaTransferService.GetAllOption(uname);
+
+        var query2 = from element in topt
+                     where element.TransferOption != ""
+                     select element.TransferOption;
+
+        transferOption = query2.FirstOrDefault();
+
+        if (transferOption == "4" || transferOption == "5")
+        {
+            names = await OlevelService.GetAllSqliteSifaNames(uname);
+            names2 = names.AsQueryable();
+        }
+
+        StateHasChanged();
+
+    }
+
+    private async Task TransferData()
+    {
+
+        // To Clear display Regions list on Interface if exist
+        rows.Clear();
+        datalists.Clear();
+        StateHasChanged();
+
+        if (datasourceDB != "")
+        {
+
+            _username = user2.UserName;
+
+            var conModelList = await SifaConnectionService.GetConnectionByNameUsername("mysql", _username);
+            if (conModelList.Count() != 0)
+            {
+                foreach (var item in conModelList)
+                {
+                    _pwd = Setting.DecryptionMe(item.Pwd);
+                    _host = item.Host;
+                    _port = item.Port;
+
+                }
+            }
+            else
+            {
+                snackBar.ShowWarning("Please Logout and Login again!", 4000);
+                return;
+            }
+
+            string pconnstrMysql = "Server=" + _host + ";" + "Port=" + _port + ";" + "Database=" + datasourceDB + ";" + "UserId=" + _username + ";" + "Password=" + _pwd + ";Charset=latin1;allowLoadLocalInfile=true;ConnectionTimeout = 80000;sslmode=DISABLED;SslMode=none;Allow User Variables=True;";
+
+            int response = -1;
+            _connId = 0;
+            _connectionName = "mysql";
+            _connectionString = pconnstrMysql;
+
+            // To check if Sqlite has connection string
+            await GetConnectionId(_connectionName, _username);
+
+            SifaConnectionModel conMod = new()
+                {
+                    Id = _connId,
+                    Name = _connectionName,
+                    ConnectionString = Setting.EncryptionMe(_connectionString),
+                    Username = _username,
+                    Host = _host,
+                    Pwd = Setting.EncryptionMe(_pwd),
+                    Port = _port
+                };
+            //Setting.MysqlSifaConnectionModel = conMod;
+
+            if (_connId > 0)
+            {
+                //Update Connection string
+                response = await SifaConnectionService.UpdateConnection(conMod);
+            }
+            else
+            {
+                response = await SifaConnectionService.AddConnection(conMod);
+
+            }
+
+            TotalCandidate = 0;
+
+            // var topt = await GetTrasferOptionDB(transferOption, id);
+
+            // if (topt == "-1")
+            // {
+            //     return;
+            // }
+
+            if (transferOption == "1")  // Bulk Insert
+            {
+                isLoading = true;
+                StateHasChanged();
+                int datacount = 0;
+                int csvDataRowCount;
+                int rowcount2;
+                double stps2;
+                int Steps2;
+                int skp2;
+                // To Delete Mysql sifa Centres from Sqlite Database
+                var deletece = SifaService.DeleteAllMysqlCentre<MysqlCentreModel>();
+                var getce = await SifaService.GetAllMysqlCentre2(_yearselected, _username);
+
+                if (getce.StatusCode != 200)
+                {
+                    isLoading = false;
+                    StateHasChanged();
+                    var mes = string.Format("Check your {1} database if table with year {0} exist!", _yearselected, datasourceDB);
+                    snackBar.ShowError(mes, 5000);
+                    return;
+                }
+
+                var addce = SifaService.AddMysqlCentreAll(getce.MysqlCentreModelList!);
+                cdata = await SifaService.GetCentreSqlite();
+                TotalCandidate = 0;
+                TotalData = 0;
+                //int TotalCandidateRegion;
+                if (cdata.Count != 0)
+                {
+                    #region Centre
+                    cedata = await SifaService.GetCentreSqliteNotSifa();
+                    if (cedata.Count != 0)
+                    {
+                        datacount = cedata.Count();
+                        regiondisplay = "Centre";
+                        StateHasChanged();
+
+                        csvDataRowCount = cedata.Count;
+                        rowcount2 = csvDataRowCount;
+                        stps2 = csvDataRowCount / 10000.00000;
+                        Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                        skp2 = 0;
+                        _maxvalueregion = Steps2;
+
+                        _regpercentregion = 1 * 100 / 100;
+                        indetermin = true;
+                        StateHasChanged();
+
+                        for (int i = 0; i < Steps2; i++)
+                        {
+                            var listcsv = cedata.AsEnumerable().Skip(skp2).Take(10000).ToList();
+
+                            var ince = await SifaService.InsertCentreBulk(_yearselected, listcsv, _username);
+                            indetermin = false;
+
+                            Valueregion = i + 1;
+                            _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                            skp2 = skp2 + 10000;
+                            StateHasChanged();
+                        }
+                    }
+                    //this time to get all centres with those added from sql server
+                    var deletec = SifaService.DeleteAllMysqlCentre<MysqlCentreModel>();
+                    var deletesub = SifaService.DeleteAllMysqlSubject<MysqlSubjectModel>();
+                    var deletegrade = SifaService.DeleteAllMysqlGrade<MysqlGradeModel>();
+
+                    await Task.WhenAll(deletec, deletesub, deletegrade);
+
+                    var getc = await SifaService.GetAllMysqlCentre(_yearselected, _username);
+
+                    if (getc.Count != 0)
+                    {
+                        //SUBJECT
+                        regiondisplay = "Subject";
+
+                        sdata = await SifaService.GetSubjectSqlite();
+                        datacount = sdata.Count();
+                        for (int j = 0; j < datacount; j++)
+                        {
+                            var inc = await SifaService.InsertSubjectNotExist(_yearselected, sdata[j].Etype, sdata[j].SubjectCode, sdata[j].Subsidiary, sdata[j].SubjectName, _username);
+
+                            _maxvalueregion = datacount;
+                            Valueregion = j + 1;
+                            _regpercentregion = Valueregion * 100 / _maxvalueregion;
+
+                            StateHasChanged();
+                        }
+
+                        //GRADE
+                        regiondisplay = "Grade";
+
+                        gdata = await SifaService.GetGradeSqlite();
+                        datacount = gdata.Count();
+                        for (int j = 0; j < datacount; j++)
+                        {
+                            var inc = await SifaService.InsertGradeNotExist(_yearselected, gdata[j].TypeId, gdata[j].GradeName, gdata[j].GradeName, gdata[j].GradeId, gdata[j].IntRank, gdata[j].IsPass, gdata[j].Credit, _username);
+
+                            _maxvalueregion = datacount;
+                            Valueregion = j + 1;
+                            _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                            StateHasChanged();
+                        }
+
+                        //TYPE
+                        regiondisplay = "Type";
+
+                        tdata = await SifaService.GetTypeSqlite();
+                        datacount = tdata.Count();
+                        for (int j = 0; j < datacount; j++)
+                        {
+                            var inc = await SifaService.InsertTypeNotExist(_yearselected, tdata[j].TypeId, tdata[j].TypeName, tdata[j].ShortName, tdata[j].SzCode, _username);
+
+                            _maxvalueregion = datacount;
+                            Valueregion = j + 1;
+                            _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                            StateHasChanged();
+                        }
+
+                        var getsub = await SifaService.GetAllMysqlSubject(_yearselected, _username);
+                        var getgrade = await SifaService.GetAllMysqlGrade(_yearselected, _username);
+
+                        //ADD INTO SQLITE TABLES TO BE USED IN PARTICULAR AND RESULTS
+                        var addc = SifaService.AddMysqlCentreAll(getc);
+                        var addsub = SifaService.AddMysqlSubjectAll(getsub);
+                        var addgrade = SifaService.AddMysqlGradeAll(getgrade);
+                        await Task.WhenAll(addc, addsub, addgrade);
+
+                    }
+                    else
+                    {
+                        var mes = string.Format("Check your {1} database if table with year {0} exist!", _yearselected, datasourceDB);
+                        snackBar.ShowWarning(mes, 3000);
+                        return;
+                    }
+
+                    #endregion
+
+                    #region Particular
+                    _regpercentregion = 1 * 100 / 100;
+                    indetermin = true;
+                    StateHasChanged();
+                    pcdata = await SifaService.GetParticularSqlitePlusCentreId();
+                    TotalCandidate = 0;
+                    TotalData = 0;
+                    //int TotalCandidateRegion;
+                    if (pcdata.Count != 0)
+                    {
+                        datacount = pcdata.Count();
+                        regiondisplay = "Candidate";
+                        StateHasChanged();
+
+                        List<SifaParticularModel> newTypeList = new();
+
+                        var typesonly = pcdata.GroupBy(e => e.Etype)
+                                        .Select(g => new { Etype = g.Key });
+
+                        var deleteparticular = await SifaService.DeleteAllMysqlParticular<MysqlParticularModel>();
+
+                        //LOOP ACCORDING TO EXAM TYPE
+                        foreach (var item in typesonly)
+                        {
+                            //DELETE RESULTS AND PARTICULAR IN MYSQL SIFA DATABASE
+                            var deleter = await SifaService.DeleteResultByTypeId(_yearselected, item.Etype, _username);
+                            var deletep = await SifaService.DeleteParticularByTypeId(_yearselected, item.Etype, _username);
+
+                            var listbytypeid = pcdata.AsEnumerable().Where(x => x.Etype == item.Etype).ToList();
+
+                            csvDataRowCount = listbytypeid.Count;
+                            rowcount2 = csvDataRowCount;
+                            stps2 = csvDataRowCount / 10000.00000;
+                            Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                            skp2 = 0;
+                            _maxvalueregion = Steps2;
+
+                            for (int i = 0; i < Steps2; i++)
+                            {
+                                var listcsv = listbytypeid.AsEnumerable().Skip(skp2).Take(10000).ToList();
+
+                                var ince = await SifaService.InsertParticularBulk(_yearselected, listcsv, _username);
+                                indetermin = false;
+
+                                Valueregion = i + 1;
+                                _regpercentregion = Valueregion * 100 / _maxvalueregion;
+
+                                if (_regpercentregion == 100)
+                                {
+                                    Valueregion -= 1;
+                                    _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                                }
+
+                                skp2 = skp2 + 10000;
+                                StateHasChanged();
+                            }
+
+                            var Upd = await SifaService.UpdateParticularPoint(_yearselected, item.Etype, _username);
+
+                            var getcpart = await SifaService.GetAllMysqlParticular(_yearselected, item.Etype, _username);
+
+                            var addc = await SifaService.AddMysqlParticularAll(getcpart);
+                            Valueregion += 1;
+                            _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                            StateHasChanged();
+
+                        }
+
+                    }
+
+                    #endregion
+
+                    #region Result
+                    indeterminresult = true;
+                    StateHasChanged();
+                    rpdata = await SifaService.GetResultSqlitePlusParticularId();
+                    TotalCandidate = 0;
+                    TotalData = 0;
+                    //int TotalCandidateRegion;
+                    if (rpdata.Count != 0)
+                    {
+                        datacount = rpdata.Count();
+                        displaydetail = "Results";
+                        StateHasChanged();
+
+                        csvDataRowCount = rpdata.Count;
+                        rowcount2 = csvDataRowCount;
+                        stps2 = csvDataRowCount / 10000.00000;
+                        Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                        skp2 = 0;
+                        _maxvalue = Steps2;
+
+                        for (int i = 0; i < Steps2; i++)
+                        {
+                            var listcsv = rpdata.AsEnumerable().Skip(skp2).Take(10000).ToList();
+
+                            var ince = await SifaService.InsertResultBulk(_yearselected, listcsv, _username);
+                            indeterminresult = false;
+
+                            Value = i + 1;
+                            _regpercent = Value * 100 / _maxvalue;
+                            skp2 = skp2 + 10000;
+                            StateHasChanged();
+                        }
+
+                        displaydetail = "COMPLETED";
+
+                        rows.Add(regiondisplay + "," + pcdata.Count().ToString() + "," + "Completed");
+                        var dli = new DataListModel(Guid.NewGuid(),regiondisplay, pcdata.Count().ToString(), "Completed");
+                        datalists.Add(dli);
+                        dlist = datalists.AsQueryable();
+
+                        StateHasChanged();
+
+                    }
+                    else
+                    {
+                        displaydetail = "COMPLETED";
+                        _maxvalue = 1;
+                        Value = 1;
+                        _regpercent = Value * 100 / _maxvalue;
+                        rows.Add(regiondisplay + "," + pcdata.Count().ToString() + "," + "Completed");
+                        var dli = new DataListModel(Guid.NewGuid(),regiondisplay, pcdata.Count().ToString(), "Completed");
+                        datalists.Add(dli);
+                        dlist = datalists.AsQueryable();
+
+                        StateHasChanged();
+                    }
+
+                    #endregion
+
+                }
+                else
+                {
+                    snackBar.ShowInfo("Please, Get Data for Update first before transfer", 4000);
+                }
+            }
+            else if (transferOption == "3" || transferOption == "8")  //  Insert not delete
+            {
+                isLoading = true;
+                StateHasChanged();
+                int datacount = 0;
+                int csvDataRowCount;
+                int rowcount2;
+                double stps2;
+                int Steps2;
+                int skp2;
+                // To Delete Mysql sifa Centres from Sqlite Database
+                var deletece = SifaService.DeleteAllMysqlCentre<MysqlCentreModel>();
+                var getce = await SifaService.GetAllMysqlCentre2(_yearselected, _username);
+
+                if (getce.StatusCode != 200)
+                {
+                    isLoading = false;
+                    StateHasChanged();
+                    var mes = string.Format("Check your {1} database if table with year {0} exist!", _yearselected, datasourceDB);
+                    snackBar.ShowError(mes, 5000);
+                    return;
+                }
+
+                var addce = SifaService.AddMysqlCentreAll(getce.MysqlCentreModelList!);
+                cdata = await SifaService.GetCentreSqlite();
+                TotalCandidate = 0;
+                TotalData = 0;
+                //int TotalCandidateRegion;
+                if (cdata.Count != 0)
+                {
+                    #region Centre
+                    cedata = await SifaService.GetCentreSqliteNotSifa();
+                    if (cedata.Count != 0)
+                    {
+                        datacount = cedata.Count();
+                        regiondisplay = "Centre";
+                        StateHasChanged();
+
+                        csvDataRowCount = cedata.Count;
+                        rowcount2 = csvDataRowCount;
+                        stps2 = csvDataRowCount / 10000.00000;
+                        Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                        skp2 = 0;
+                        _maxvalueregion = Steps2;
+
+                        _regpercentregion = 1 * 100 / 100;
+                        indetermin = true;
+                        StateHasChanged();
+
+                        for (int i = 0; i < Steps2; i++)
+                        {
+                            var listcsv = cedata.AsEnumerable().Skip(skp2).Take(10000).ToList();
+
+                            var ince = await SifaService.InsertCentreBulk(_yearselected, listcsv, _username);
+                            indetermin = false;
+
+                            Valueregion = i + 1;
+                            _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                            skp2 = skp2 + 10000;
+                            StateHasChanged();
+                        }
+                    }
+
+                    var deletec = SifaService.DeleteAllMysqlCentre<MysqlCentreModel>();
+                    var deletesub = SifaService.DeleteAllMysqlSubject<MysqlSubjectModel>();
+                    var deletegrade = SifaService.DeleteAllMysqlGrade<MysqlGradeModel>();
+
+                    await Task.WhenAll( deletec,deletesub, deletegrade);
+
+                    //this time to get all centres with added from sql if was exist
+                    var getc = await SifaService.GetAllMysqlCentre(_yearselected, _username);
+
+
+                    //SUBJECT
+                    regiondisplay = "Subject";
+
+                    sdata = await SifaService.GetSubjectSqlite();
+                    datacount = sdata.Count();
+                    for (int j = 0; j < datacount; j++)
+                    {
+                        var inc = await SifaService.InsertSubjectNotExist(_yearselected, sdata[j].Etype, sdata[j].SubjectCode, sdata[j].Subsidiary, sdata[j].SubjectName, _username);
+
+                        _maxvalueregion = datacount;
+                        Valueregion = j + 1;
+                        _regpercentregion = Valueregion * 100 / _maxvalueregion;
+
+                        StateHasChanged();
+                    }
+
+                    //GRADE
+                    regiondisplay = "Grade";
+
+                    gdata = await SifaService.GetGradeSqlite();
+                    datacount = gdata.Count();
+                    for (int j = 0; j < datacount; j++)
+                    {
+                        var inc = await SifaService.InsertGradeNotExist(_yearselected, gdata[j].TypeId, gdata[j].GradeName, gdata[j].GradeName, gdata[j].GradeId, gdata[j].IntRank, gdata[j].IsPass, gdata[j].Credit, _username);
+
+                        _maxvalueregion = datacount;
+                        Valueregion = j + 1;
+                        _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                        StateHasChanged();
+                    }
+
+                    //TYPE
+                    regiondisplay = "Type";
+
+                    tdata = await SifaService.GetTypeSqlite();
+                    datacount = tdata.Count();
+                    for (int j = 0; j < datacount; j++)
+                    {
+                        var inc = await SifaService.InsertTypeNotExist(_yearselected, tdata[j].TypeId, tdata[j].TypeName, tdata[j].ShortName, tdata[j].SzCode, _username);
+
+                        _maxvalueregion = datacount;
+                        Valueregion = j + 1;
+                        _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                        StateHasChanged();
+                    }
+
+                    var getsub = await SifaService.GetAllMysqlSubject(_yearselected, _username);
+                    var getgrade = await SifaService.GetAllMysqlGrade(_yearselected, _username);
+
+                    //ADD INTO SQLITE TABLES TO BE USED IN PARTICULAR AND RESULTS
+                    var addc = SifaService.AddMysqlCentreAll(getc);
+                    var addsub = SifaService.AddMysqlSubjectAll(getsub);
+                    var addgrade = SifaService.AddMysqlGradeAll(getgrade);
+                    await Task.WhenAll(addc, addsub, addgrade);
+
+
+
+                    #endregion
+
+                    #region Particular
+                    _regpercentregion = 1 * 100 / 100;
+                    indetermin = true;
+                    StateHasChanged();
+                    pcdata = await SifaService.GetParticularSqlitePlusCentreId();
+                    TotalCandidate = 0;
+                    TotalData = 0;
+                    //int TotalCandidateRegion;
+                    if (pcdata.Count != 0)
+                    {
+                        datacount = pcdata.Count();
+                        regiondisplay = "Candidate";
+                        StateHasChanged();
+
+                        List<SifaParticularModel> newTypeList = new();
+
+                        var typesonly = pcdata.GroupBy(e => e.Etype)
+                                        .Select(g => new { Etype = g.Key });
+
+                        var deleteparticular = await SifaService.DeleteAllMysqlParticular<MysqlParticularModel>();
+
+                        //LOOP ACCORDING TO EXAM TYPE
+                        foreach (var item in typesonly)
+                        {
+                            //DELETE RESULTS AND PARTICULAR IN MYSQL SIFA DATABASE
+                            //	var deleter = await SifaService.DeleteResultByTypeId(_yearselected, item.Etype);
+                            //var deletep = await SifaService.DeleteParticularByTypeId(_yearselected, item.Etype);
+
+                            var listbytypeid = pcdata.AsEnumerable().Where(x => x.Etype == item.Etype).ToList();
+
+                            csvDataRowCount = listbytypeid.Count;
+                            rowcount2 = csvDataRowCount;
+                            stps2 = csvDataRowCount / 10000.00000;
+                            Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                            skp2 = 0;
+                            _maxvalueregion = Steps2;
+
+                            for (int i = 0; i < Steps2; i++)
+                            {
+                                var listcsv = listbytypeid.AsEnumerable().Skip(skp2).Take(10000).ToList();
+
+                                var ince = await SifaService.InsertParticularBulk(_yearselected, listcsv, _username);
+                                indetermin = false;
+
+                                Valueregion = i + 1;
+                                _regpercentregion = Valueregion * 100 / _maxvalueregion;
+
+                                if (_regpercentregion == 100)
+                                {
+                                    Valueregion -= 1;
+                                    _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                                }
+
+                                skp2 = skp2 + 10000;
+                                StateHasChanged();
+                            }
+
+                            var Upd = await SifaService.UpdateParticularPoint(_yearselected, item.Etype, _username);
+
+                            var getcpart = await SifaService.GetAllMysqlParticular(_yearselected, item.Etype, _username);
+
+                            var addcp = await SifaService.AddMysqlParticularAll(getcpart);
+                            Valueregion += 1;
+                            _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                            StateHasChanged();
+
+                        }
+
+                    }
+
+                    #endregion
+
+                    #region Result
+                    indeterminresult = true;
+                    StateHasChanged();
+                    rpdata = await SifaService.GetResultSqlitePlusParticularId();
+                    TotalCandidate = 0;
+                    TotalData = 0;
+                    //int TotalCandidateRegion;
+                    if (rpdata.Count != 0)
+                    {
+                        datacount = rpdata.Count();
+                        displaydetail = "Results";
+                        StateHasChanged();
+
+                        csvDataRowCount = rpdata.Count;
+                        rowcount2 = csvDataRowCount;
+                        stps2 = csvDataRowCount / 10000.00000;
+                        Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                        skp2 = 0;
+                        _maxvalue = Steps2;
+
+                        for (int i = 0; i < Steps2; i++)
+                        {
+                            var listcsv = rpdata.AsEnumerable().Skip(skp2).Take(10000).ToList();
+
+                            var ince = await SifaService.InsertResultBulk(_yearselected, listcsv, _username);
+                            indeterminresult = false;
+
+                            Value = i + 1;
+                            _regpercent = Value * 100 / _maxvalue;
+                            skp2 = skp2 + 10000;
+                            StateHasChanged();
+                        }
+
+                        displaydetail = "COMPLETED";
+
+                        rows.Add(regiondisplay + "," + pcdata.Count().ToString() + "," + "Completed");
+                        var dli = new DataListModel(Guid.NewGuid(),regiondisplay, pcdata.Count().ToString(), "Completed");
+                        datalists.Add(dli);
+                        dlist = datalists.AsQueryable();
+
+                        StateHasChanged();
+
+                    }
+                    else
+                    {
+                        displaydetail = "COMPLETED";
+                        _maxvalue = 1;
+                        Value = 1;
+                        _regpercent = Value * 100 / _maxvalue;
+                        rows.Add(regiondisplay + "," + pcdata.Count().ToString() + "," + "Completed");
+                        var dli = new DataListModel(Guid.NewGuid(),regiondisplay, pcdata.Count().ToString(), "Completed");
+                        datalists.Add(dli);
+                        dlist = datalists.AsQueryable();
+                        StateHasChanged();
+                    }
+
+                    #endregion
+
+                }
+                else
+                {
+                    snackBar.ShowInfo("Please, Get Data for Update first before transfer", 5000);
+                }
+                isLoading = false;
+                StateHasChanged();
+            }
+
+            else if (transferOption == "4") //Changed Names for Store DB
+            {
+                await UpdateNamesAsnyc();
+            }
+
+            else if (transferOption == "5") //Changed Fee for Store DB
+            {
+                await UpdateFeeAsnyc();
+            }
+
+            else // TODO  UPDATE CSV.......
+            {
+                await UpdateAsnyc();
+            }
+        }
+
+    }
+    void ShowRegistration()
+    {
+
+        // snackBar.Add("Please, Insert Data into Registration Database before transfer", Severity.Success, config =>
+        // {
+        //     config.Action = "Open";
+        //     config.RequireInteraction = true;
+        //     config.ActionColor = Color.Primary;
+        //     config.Onclick = snackbar =>
+        //     {
+        //         Desti();
+        //         return Task.CompletedTask;
+        //     };
+        // });
+    }
+    public void Desti()
+    {
+        NavManager.NavigateTo("/sifadestination");
+    }
+    private async ValueTask TranferLogInsert(string topt, int cid, int trecord, string uname)
+    {
+        TransferLogModel mytmodle = new TransferLogModel
+            {
+                TransferOption = topt,
+                ClassId = cid,
+                TotalRecord = trecord,
+                UserName = uname,
+                TransferDate = DateTime.Now
+            };
+
+        //	await SqlService.AddTransferLog(mytmodle);
+    }
+
+    //private DataTable ConvertToDataTable<T>(List<T> list)
+    //{
+    //	Type entityType = typeof(T);
+    //	DataTable table = new DataTable();
+    //	//Get all the properties
+    //	PropertyDescriptorCollection properties = TypeDescriptor.GetProperties(entityType);
+
+    //	foreach (PropertyDescriptor prop in properties)
+    //	{
+    //		//Setting column names as Property names
+    //		table.Columns.Add(prop.Name, Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
+    //	}
+
+    //	foreach (T item in list)
+    //	{
+    //		DataRow row = table.NewRow();
+
+    //		foreach (PropertyDescriptor prop in properties)
+    //		{
+    //			//inserting property values to datatable rows
+    //			row[prop.Name] = prop.GetValue(item) ?? DBNull.Value;
+    //		}
+
+    //		table.Rows.Add(row);
+    //	}
+    //	return table;
+    //}
+
+    private async ValueTask<string> GetTrasferOptionDB(string toption, int ccid)
+    {
+        string vv = "";
+        try
+        {
+
+            //	transferOptionDB = await SqlService.GetTransferLog(toption, ccid);
+
+            if (transferOptionDB.Count > 0)
+            {
+                var query2 = from element in transferOptionDB
+                             where element.ClassId > 0
+                             select element.TransferOption;
+
+                vv = query2.FirstOrDefault().ToString();
+            }
+        }
+        catch (Exception ee)
+        {
+            snackBar.ShowError(ee.Message, 4000);
+            return vv = "-1";
+        }
+
+        return vv;
+    }
+    private async ValueTask GetConnectionId(string conntype, string uname)
+    {
+        var conModelList = await SifaConnectionService.GetConnectionByNameUsername(conntype, uname);
+
+        var query2 = from element in conModelList
+                     where element.Name == conntype && element.Username == uname
+                     select element.Id;
+
+        _connId = query2.FirstOrDefault();
+    }
+
+    private bool OpenConnSql(string conn)
+    {
+        MySqlConnection connection = new MySqlConnection(conn);
+        try
+        {
+            connection.Open();
+            return true;
+
+        }
+        catch (MySqlException ex)
+        {
+            snackBar.ShowError(ex.Message, 4000);
+            return false;
+        }
+    }
+    private async Task UpdateAsnyc()
+    {
+        _username = user2.UserName;
+        int datacount = 0;
+        cdata = await SifaService.GetCentreSqlite();
+        TotalCandidate = 0;
+        TotalData = 0;
+        //int TotalCandidateRegion;
+        if (cdata.Count != 0)
+        {
+            #region Centre
+            datacount = cdata.Count();
+            regiondisplay = "Centre";
+            StateHasChanged();
+            for (int j = 0; j < datacount; j++)
+            {
+                var inc = await SifaService.InsertCentreNotExist(_yearselected, cdata[j].SzExamCentreNumber, cdata[j].SzExamCentreName, _username);
+
+                _maxvalueregion = datacount;
+                Valueregion = j + 1;
+                _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                StateHasChanged();
+            }
+            //DELETE DATA ON SQLITE DB
+            var deletec = SifaService.DeleteAllMysqlCentre<MysqlCentreModel>();
+            var deletesub = SifaService.DeleteAllMysqlSubject<MysqlSubjectModel>();
+            var deletegrade = SifaService.DeleteAllMysqlGrade<MysqlGradeModel>();
+
+            await Task.WhenAll(deletec, deletesub, deletegrade);
+
+            var getc = await SifaService.GetAllMysqlCentre(_yearselected, _username);
+            if (getc.Count != 0)
+            {
+
+                var getsub = await SifaService.GetAllMysqlSubject(_yearselected, _username);
+                var getgrade = await SifaService.GetAllMysqlGrade(_yearselected, _username);
+
+                var addc = SifaService.AddMysqlCentreAll(getc);
+                var addsub = SifaService.AddMysqlSubjectAll(getsub);
+                var addgrade = SifaService.AddMysqlGradeAll(getgrade);
+                await Task.WhenAll(addc, addsub, addgrade);
+
+            }
+            else
+            {
+                var mes = string.Format("Check your {1} database if table with year {0} exist!", _yearselected, datasourceDB);
+                snackBar.ShowInfo(mes, 3000);
+                return;
+            }
+
+            #endregion
+
+            #region Particular
+
+            datalists.Clear();
+            pcdata = await SifaService.GetParticularSqlitePlusCentreId();
+            TotalCandidate = 0;
+            TotalData = 0;
+            //int TotalCandidateRegion;
+            if (pcdata.Count != 0)
+            {
+                datacount = pcdata.Count();
+                regiondisplay = "Candidate Particular";
+                StateHasChanged();
+                var deletepar = await SifaService.DeleteAllMysqlParticular<MysqlParticularModel>();
+
+                for (int j = 0; j < datacount; j++)
+                {
+                    var inc = await SifaService.InsertParticularNotExist(_yearselected, pcdata[j].SzCandidatesNumber, pcdata[j].Etype, pcdata[j].CentreId, pcdata[j].Premno, pcdata[j].Ctype, pcdata[j].Fname, pcdata[j].Oname, pcdata[j].Sname, pcdata[j].Sex, pcdata[j].Dbirth, pcdata[j].Point, pcdata[j].Division, pcdata[j].Status, pcdata[j].Nrank, _username);
+
+                    if (inc.BooleanResponse == true && inc.StatusCode==200)
+                    {
+                        var dli = new DataListModel(Guid.NewGuid(), pcdata[j].SzCandidatesNumber, "Ok", inc.Message!);
+                        datalists.Add(dli);
+                        dlist = datalists.AsQueryable();
+                        StateHasChanged();
+                    }
+                    else if (inc.BooleanResponse == true && inc.StatusCode == 201)
+                    {
+                        var upcand = await SifaService.UpdateParticular(_yearselected, pcdata[j].SzCandidatesNumber, pcdata[j].Etype, pcdata[j].CentreId, pcdata[j].Premno, pcdata[j].Ctype, pcdata[j].Fname, pcdata[j].Oname, pcdata[j].Sname, pcdata[j].Sex, pcdata[j].Dbirth, pcdata[j].Point, pcdata[j].Division, pcdata[j].Status, pcdata[j].Nrank, _username);
+                        if (upcand.BooleanResponse == true)
+                        {
+                            var dli = new DataListModel(Guid.NewGuid(), pcdata[j].SzCandidatesNumber, "Ok", upcand.Message!);
+                            datalists.Add(dli);
+                            dlist = datalists.AsQueryable();
+                            StateHasChanged();
+                        }
+                        else
+                        {
+                            var dli = new DataListModel(Guid.NewGuid(), pcdata[j].SzCandidatesNumber, "Error", upcand.Message!);
+                            datalists.Add(dli);
+                            dlist = datalists.AsQueryable();
+                            StateHasChanged();
+                        }
+                    }
+
+                    else
+                    {
+                       
+                        var dli = new DataListModel(Guid.NewGuid(), pcdata[j].SzCandidatesNumber, "Error", inc.Message!);
+                        datalists.Add(dli);
+                        dlist = datalists.AsQueryable();
+                        StateHasChanged();
+                    }
+
+
+                   
+                    var getcpart = await SifaService.GetAllMysqlParticularCand(_yearselected, pcdata[j].Etype, pcdata[j].SzCandidatesNumber, _username);
+                    var addc = await SifaService.AddMysqlParticularAll(getcpart);
+                    _maxvalueregion = datacount;
+                    Valueregion = j + 1;
+                    _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                    displaydetail = "COMPLETED";
+
+                    // rows.Add(regiondisplay + "," + pcdata[j].SzCandidatesNumber + "," + "Completed");
+
+                }
+            }
+            else
+            {
+                displaydetail = "ERROR: Candidate does not exit, try to get data from the source";
+                StateHasChanged();
+                return;
+            }
+
+            #endregion
+
+            #region Result
+
+            rpdata = await SifaService.GetResultSqlitePlusParticularIdUpdate();
+            TotalCandidate = 0;
+            TotalData = 0;
+            //int TotalCandidateRegion;
+            if (rpdata.Count != 0)
+            {
+                datacount = rpdata.Count();
+                displaydetail = "Results";
+                StateHasChanged();
+
+                List<SifaResultModel> newList = new();
+
+                newList = rpdata.DistinctBy(x => x.ParticualrId).ToList();
+
+                foreach (var item in newList)
+                {
+                    var deletepartId = await SifaService.DeleteResultByParticularId(_yearselected, item.ParticualrId, item.Etype, item.SzCandidatesNumber, _username);
+
+                }
+
+                for (int j = 0; j < datacount; j++)
+                {
+
+                    var inc = await SifaService.InsertResult(_yearselected, rpdata[j].SubjectId , rpdata[j].ParticualrId, rpdata[j].GradeId, rpdata[j].Status, rpdata[j].SzCandidatesNumber, rpdata[j].Etype, rpdata[j].Score, _username);
+
+                    _maxvalue = datacount;
+                    Value = j + 1;
+                    _regpercent = Value * 100 / _maxvalue;
+
+                    if (inc.BooleanResponse == true)
+                    {
+                        var dli2 = new DataListModel(Guid.NewGuid(), rpdata[j].SzCandidatesNumber, rpdata[j].SubjectCode.ToString(), inc.Message!);
+                        datalists.Add(dli2);
+                        dlist = datalists.AsQueryable();
+                        StateHasChanged();
+                    }
+                    else
+                    {
+                        var dli2 = new DataListModel(Guid.NewGuid(), rpdata[j].SzCandidatesNumber, rpdata[j].SubjectCode.ToString(), $"ERROR: {inc.Message!}");
+                        datalists.Add(dli2);
+                        dlist = datalists.AsQueryable();
+                        StateHasChanged();
+                    }
+                    displaydetail = "COMPLETED";
+                    StateHasChanged();
+                }
+                
+
+                // rows.Add(regiondisplay + "," + pcdata.Count().ToString() + "," + "Completed");
+                // var dli = new DataListModel(Guid.NewGuid(), regiondisplay, pcdata.Count().ToString(), "Completed");
+                // datalists.Add(dli);
+                // dlist = datalists.AsQueryable();
+                // StateHasChanged();
+
+            }
+            else
+            {
+                displaydetail = "COMPLETED";
+                _maxvalue = 1;
+                Value = 1;
+                _regpercent = Value * 100 / _maxvalue;
+                // rows.Add(regiondisplay + "," + pcdata.Count().ToString() + "," + "Completed");
+                // var dli = new DataListModel(Guid.NewGuid(),regiondisplay, pcdata.Count().ToString(), "Completed");
+                // datalists.Add(dli);
+                // dlist = datalists.AsQueryable();
+                StateHasChanged();
+            }
+            #endregion
+        }
+        else
+        {
+            snackBar.ShowInfo("Please, Get Data for Update first before transfer", 4000);
+        }
+    }
+    private async Task UpdateNamesAsnyc()
+    {
+        _username = user2.UserName;
+        int datacount = 0;
+
+        TotalCandidate = 0;
+        TotalData = 0;
+        //int TotalCandidateRegion;
+        if (names.Count != 0)
+        {
+            #region Particular
+
+            TotalCandidate = 0;
+            TotalData = 0;
+
+            datacount = names.Count();
+            regiondisplay = "Updated Number";
+            _regpercentregion = 0;
+            StateHasChanged();
+
+            for (int j = 0; j < datacount; j++)
+            {
+                try
+                {
+                    var upcand = await SifaService.UpdateParticularNames(names[j].SifaTable, names[j].ExamNumber.Replace('-', '/'), names[j].ExamType, names[j].Fname.Replace("'", "''"), names[j].Oname.Replace("'", "''"), names[j].Sname.Replace("'", "''"), names[j].Sex, _username);
+
+                }
+                catch (Exception exxe)
+                {
+
+                    snackBar.ShowError(exxe.Message.ToString(), 4000);
+                    continue;
+                }
+
+                _maxvalueregion = datacount;
+                Valueregion = j + 1;
+                _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                rows.Add(regiondisplay + "," + names.Count().ToString() + "," + "Completed");
+                var dli = new DataListModel(Guid.NewGuid(), regiondisplay, names[j].ExamNumber.Replace('-', '/'), "Completed");
+                datalists.Add(dli);
+                dlist = datalists.AsQueryable();
+                StateHasChanged();
+            }
+        }
+
+        #endregion
+
+        else
+        {
+            snackBar.ShowInfo("Please, Get Names for Update first!", 4000);
+        }
+    }
+    private async Task UpdateFeeAsnyc()
+    {
+        _username = user2.UserName;
+        int datacount = 0;
+
+        TotalCandidate = 0;
+        TotalData = 0;
+        //int TotalCandidateRegion;
+        if (names.Count != 0)
+        {
+            #region Particular
+
+            TotalCandidate = 0;
+            TotalData = 0;
+
+            datacount = names.Count();
+            regiondisplay = "Particular Updated";
+            _regpercentregion = 0;
+            StateHasChanged();
+
+            var deletepar = SifaService.DeleteAllMysqlParticular<MysqlParticularModel>();
+            var deletesub = SifaService.DeleteAllMysqlSubject<MysqlSubjectModel>();
+            var deletegrade = SifaService.DeleteAllMysqlGrade<MysqlGradeModel>();
+
+            await Task.WhenAll(deletepar, deletesub, deletegrade);
+
+            // Get Distinct Exam Year for get Grade Id and Subject Id
+            var distinctValuesList = names
+            .Select(item => item.ExamYear)
+            .Distinct()
+            .ToList();
+            try
+            {
+                foreach (var dstyear in distinctValuesList)
+                {
+                    var getsub = await SifaService.GetAllMysqlSubject(dstyear.ToString(), _username);
+                    var getgrade = await SifaService.GetAllMysqlGrade(dstyear.ToString(), _username);
+
+                    var addsub = SifaService.AddMysqlSubjectAllNotExist(getsub);
+                    var addgrade = SifaService.AddMysqlGradeAllNotExist(getgrade);
+                    await Task.WhenAll(addsub, addgrade);
+                }
+            }
+            catch (Exception eex)
+            {
+
+                snackBar.ShowError("Please select correct Sifa Database  " + eex.Message.ToString(), 4000);
+                return;
+            }
+
+            for (int j = 0; j < datacount; j++)
+            {
+
+                var upcand = await SifaService.UpdateParticularFee(names[j].SifaTable, names[j].ExamNumber.Replace('-', '/'), names[j].ExamType, _username);
+
+
+
+                var getcpart = await SifaService.GetAllMysqlParticularCand(names[j].ExamYear.ToString(), names[j].ExamType, names[j].ExamNumber.Replace('-', '/'), _username);
+                var addc = await SifaService.AddMysqlParticularAll(getcpart);
+
+
+                _maxvalueregion = datacount;
+                Valueregion = j + 1;
+                _regpercentregion = Valueregion * 100 / _maxvalueregion;
+                StateHasChanged();
+            }
+
+            rows.Add(regiondisplay + "," + names.Count().ToString() + "," + "Completed");
+            var dli = new DataListModel(Guid.NewGuid(),regiondisplay, names.Count().ToString(), "Completed");
+            datalists.Add(dli);
+            dlist = datalists.AsQueryable();
+            StateHasChanged();
+
+            #endregion
+
+            #region Result
+
+            regiondisplay = "Results";
+            rpdata = await SifaService.GetResultSqlitePlusParticularIdYear();
+            TotalCandidate = 0;
+            TotalData = 0;
+            //int TotalCandidateRegion;
+            if (rpdata.Count != 0)
+            {
+                datacount = rpdata.Count();
+                displaydetail = "Results";
+                StateHasChanged();
+
+                List<SifaResultModel> newList = new();
+
+                newList = rpdata.DistinctBy(x => x.ParticualrId).ToList();
+
+                foreach (var item in newList)
+                {
+                    var deletepartId = await SifaService.DeleteResultByParticularId(item.ExamYear, item.ParticualrId, item.Etype, item.SzCandidatesNumber, _username);
+
+                }
+
+                for (int j = 0; j < datacount; j++)
+                {
+
+                    var inc = await SifaService.InsertResult(rpdata[j].ExamYear, rpdata[j].SubjectId, rpdata[j].ParticualrId, rpdata[j].GradeId, rpdata[j].Status, rpdata[j].SzCandidatesNumber, rpdata[j].Etype, rpdata[j].Score, _username);
+
+                    _maxvalue = datacount;
+                    Value = j + 1;
+                    _regpercent = Value * 100 / _maxvalue;
+                    StateHasChanged();
+                }
+                displaydetail = "COMPLETED";
+
+                rows.Add(regiondisplay + "," + names.Count().ToString() + "," + "Completed");
+                var dli2 = new DataListModel(Guid.NewGuid(),regiondisplay, names.Count().ToString(), "Completed");
+                datalists.Add(dli2);
+                dlist = datalists.AsQueryable();
+
+                StateHasChanged();
+
+            }
+            else
+            {
+                displaydetail = "COMPLETED";
+                _maxvalue = 1;
+                Value = 1;
+                _regpercent = Value * 100 / _maxvalue;
+                // rows.Add(regiondisplay + "," + pcdata.Count().ToString() + "," + "Completed");
+
+                StateHasChanged();
+            }
+            #endregion
+        }
+        else
+        {
+            snackBar.ShowWarning("Please, Get Data for Update first before transfer", 4000);
+        }
+    }
+
+}

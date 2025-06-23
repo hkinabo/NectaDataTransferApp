@@ -1,0 +1,36 @@
+﻿@page "/counter"
+<FluentToastProvider />
+
+@rendermode @(new InteractiveAutoRenderMode(prerender:false))
+
+@inject IToastService ToastService
+<PageTitle>Counter</PageTitle>
+
+<h1>Counter</h1>
+
+<div role="status" style="padding-bottom: 1em;">
+    Current count: <FluentBadge Appearance="Appearance.Neutral">@currentCount</FluentBadge>
+</div>
+
+<FluentButton Appearance="Appearance.Accent" @onclick="IncrementCount">Click me</FluentButton>
+
+<FluentButton @onclick="@ShowToast" Appearance="Appearance.Accent">Open</FluentButton>
+
+
+
+@code {
+    private int currentCount = 0;
+    int counter = 1;
+    private void IncrementCount()
+    {
+        currentCount++;
+    }
+    void ShowToast()
+    {
+        Random rnd = new();
+
+        var intent = Enum.GetValues<ToastIntent>()[rnd.Next(10)];
+        var message = $"Simple Toast #{currentCount}";
+        ToastService.ShowToast(intent, message);
+    }
+}

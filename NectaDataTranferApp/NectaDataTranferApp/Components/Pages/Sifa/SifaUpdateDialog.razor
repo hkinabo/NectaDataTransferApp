@@ -1,0 +1,268 @@
+﻿@using static NectaDataTranferApp.Components.Pages.Sifa.SifaSource
+@implements IDialogContentComponent
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<FluentToastProvider />
+@inject IOlevelService OlevelService
+
+@rendermode @(new InteractiveServerRenderMode(prerender:true))
+
+
+<FluentDialog >
+    <FluentDialogBody>
+        @*  <FluentCard Class="mt-0" Elevation="0"> *@
+        <FluentGrid >
+
+            <FluentStack Orientation="Orientation.Vertical" VerticalGap="15" >
+
+                <FluentGridItem xs="12" sm="12" md="12" style="width: 100%;">
+
+                    @if (candlist != null)
+                    {
+                        <FluentStack >
+                            <FluentTextArea Autofocus="true" Id="txtAreaNumber" @bind-Value="_candno" Label="Candidate Number" Required="true" style="width: 50%;"></FluentTextArea>
+                            <FluentTooltip Anchor="txtAreaNumber" HideTooltipOnCursorLeave="true" Position=TooltipPosition.Bottom Delay=200>eg S0101/0001 or By separate S0110/0005,S2233/0001..</FluentTooltip>
+                            <FluentSpacer  />
+                            <FluentButton Class="save" Id="btnAdd" Appearance="@Appearance.Accent" @onclick="AddCand">ADD</FluentButton>
+                        </FluentStack>
+                    }
+                </FluentGridItem>
+                @* 
+                    <FluentOverlay @bind-Visible=@isVisible>
+                        <FluentProgressRing />
+                    </FluentOverlay> *@
+                <FluentGridItem Class="mt-6" xs="12" sm="12" md="12">
+                    @*              <table>
+
+                            <tr>
+                                @foreach (var h in headings)
+                                {
+                                    <th>@h</th>
+                                }
+                            </tr>
+
+                            @foreach (var schl in candlist)
+                            {
+                                <tr>
+                                    <td>@schl.SzCandidatesNumber</td>
+                                    <td>@schl.Fname</td>
+                                    <td>@schl.Oname</td>
+                                    <td>@schl.Sname</td>
+                                    <td><FluentButton Id="btndelete" @onclick="@(()=> DeleteCandRow(schl))"></FluentButton></td> 
+                                </tr>
+                            }
+                        </table> *@
+                    <div style="height: 200px; margin-top:15px; overflow:auto;">
+                        <FluentDataGrid Loading="@isVisible" Items="@plist" GridTemplateColumns="1.3fr 1fr 1fr 1fr 1fr" Style="height=100%;width:100%;" ResizableColumns=true>
+                            <PropertyColumn Title="Number" Property="@(p=>p.SzCandidatesNumber)" Sortable="true" />
+                            <PropertyColumn Property="@(p=>p.Fname)" Sortable="true"/>
+                            <PropertyColumn Property="@(p=>p.Oname)" />
+                            <PropertyColumn Property="@(p=>p.Sname)" />
+                            <TemplateColumn Title="Action" Align="@Align.End">
+                                <FluentButton Id="btndelete" IconEnd="@(new Icons.Regular.Size20.Delete().WithColor(Color.Error))" @onclick="@(()=> DeleteCandRow(context.SzCandidatesNumber))"></FluentButton>
+                            </TemplateColumn>
+                        </FluentDataGrid>
+                    </div>
+
+
+                </FluentGridItem>
+
+            </FluentStack>
+        </FluentGrid>
+        @*      </FluentCard> *@
+    </FluentDialogBody>
+
+    <FluentDialogFooter>
+
+        <FluentStack >
+            <FluentSpacer />
+            <FluentButton Class="save" Id="btnDeleteAll" Appearance="@Appearance.Outline" OnClick="DeleteAllList">Delete All</FluentButton>
+            <FluentButton Class="save" Id="btnCancel" Appearance="@Appearance.Outline" OnClick="Cancel">Cancel</FluentButton>
+            <FluentButton Class="save" Id="btnSubmit" Appearance="@Appearance.Accent" OnClick="Submit">Ok</FluentButton>
+        </FluentStack>
+
+    </FluentDialogFooter>
+</FluentDialog>
+
+@code {
+    [CascadingParameter] FluentDialog? MudDialog { get; set; }
+    private List<ParticularModel> candlist = new();
+    [Parameter]
+    public SifaUpdateRecord content { get; set; } = default!;
+    string[] headings = { "CNumber", "Fname", "Oname", "Sname", "Action" };
+    List<String> candrows = new List<String>();
+    private string _candno = "";
+    private bool isVisible = false;
+    //	private bool dataLoaded=false;
+    string? _myUsername;
+    string? _myeyear;
+    string? _mydb;
+    private IQueryable<ParticularModel> plist;
+    private void UploadFiles(InputFileChangeEventArgs e)
+    {
+        //var entries = e.GetMultipleFiles();
+        ////Do your validations here
+        //Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+        //Snackbar.Add($"Files with {entries.FirstOrDefault().Size} bytes size are not allowed", Severity.Error);
+        //Snackbar.Add($"Files starting with letter {entries.FirstOrDefault().Name.Substring(0, 1)} are not recommended", Severity.Warning);
+        //Snackbar.Add($"This file has the extension {entries.FirstOrDefault().Name.Split(".").Last()}", Severity.Info);
+
+        //TODO upload the files to the server
+
+        //Submit();
+    }
+
+    protected async override Task OnInitializedAsync()
+    {
+        try
+        {
+            var p = OlevelService.DeleteAllParticular<ParticularModel>();
+            var r = OlevelService.DeleteAllResult<ResultModel>();
+            var c = OlevelService.DeleteAllCentre<CentreModel>();
+            await Task.WhenAll(p, r, c);
+        }
+        catch (Exception)
+        {
+
+        }
+
+    }
+
+    private async Task AddCand()
+    {
+        isVisible = true;
+        //dataLoaded = true;
+        StateHasChanged();
+        _myUsername = content.myUsername;
+        _myeyear = content.myeyear;
+        _mydb = content.mydb;
+        List<string> candlinelist = new();
+
+        foreach (string subcand in _candno.Split(','))
+        {
+            if (!string.IsNullOrEmpty(subcand) && subcand.Length >= 4)
+            {
+                candlinelist.Add(subcand);
+            }
+        }
+
+        if (candlinelist.Count() == 0)
+        {
+            snackBar.ShowWarning("There is no school entered!", 3000);
+            return;
+        }
+
+        foreach (var mwana in candlinelist)
+        {
+            if (_myUsername != null)
+
+            {
+                if (_mydb!=null)
+                {
+                    if (_mydb.ToLower().Contains("tefis") || _mydb.ToLower().Contains("conso"))
+                    {
+                        var mycand = await OlevelService.GetParticularByCandnoTefis(mwana.Trim().ToUpper() + "%", _myUsername,_myeyear);
+
+                        if (mycand.Count() != 0)
+                        {
+                            var p = OlevelService.AddParticularAll(mycand);
+
+                        }
+                    }
+                    else
+                    {
+                        var mycand = await OlevelService.GetParticularByCandno(mwana.Trim().ToUpper() + "%", _myUsername);
+
+                        if (mycand.Count() != 0)
+                        {
+                            var p = OlevelService.AddParticularAll(mycand);
+
+                        }
+                    }
+                }
+                
+               
+            }
+
+
+        }
+        candlist = await OlevelService.GetAllParticularSqlite();
+
+        isVisible = false;
+        StateHasChanged();
+        if (candlist.Count() == 0)
+        {
+            isVisible = false;
+            StateHasChanged();
+            snackBar.ShowError("Candidate not found!,check selected Database", 2000);
+            return;
+        }
+        else
+        {
+            plist = candlist.AsQueryable();
+        }
+
+    }
+
+    private void Submit()
+    {
+        //var incomeModel = new Models.IncomeModel
+        //	{
+        //		Id = Id,
+        //		IncomeSource = incomesource,
+        //		Amount = amount,
+        //		Date = AddDateTime(date, time)
+        //	};
+        //income = incomeModel;
+        MudDialog?.CloseAsync(content);
+    }
+    private async void Cancel()
+    {
+        try
+        {
+            await OlevelService.DeleteAllParticular<ParticularModel>();
+        }
+        catch (Exception)
+        {
+
+        }
+        if (MudDialog != null)
+        {
+
+            await MudDialog.CancelAsync();
+        }
+    }
+    private async void DeleteAllList()
+    {
+        try
+        {
+            await OlevelService.DeleteAllParticular<ParticularModel>();
+        }
+        catch (Exception)
+        {
+
+        }
+        candlist = await OlevelService.GetAllParticularSqlite();
+        plist = candlist.AsQueryable();
+        this.StateHasChanged();
+
+    }
+    private async void DeleteCandRow(string candno)
+    {
+        //bool? result = await _dialogService.ShowMessageBox(
+        //"Delete Confirmation",
+        //"Deleting can not be undone!",
+        //yesText: "Delete!", cancelText: "Cancel");
+
+        //if (result ?? false)
+        //{
+        var response = await OlevelService.DeleteParticularbyCandno<ParticularModel>(candno);
+        if (response > 0)
+        {
+            candlist = await OlevelService.GetAllParticularSqlite();
+            plist = candlist.AsQueryable();
+            this.StateHasChanged();
+        }
+        //}
+    }
+}

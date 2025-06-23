@@ -1,0 +1,142 @@
+﻿@page "/sifaupdateform"
+@inject IOlevelService OlevelService
+
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+<FluentCard Class="mt-0" Elevation="0">
+    <FluentGrid Justify="@JustifyContent.Center">
+        <FluentStack Orientation="Orientation.Vertical" VerticalGap="15">
+
+            <FluentGridItem xs="12" sm="12">
+
+                @if (candlist != null)
+                {
+                    <FluentTextField Id="txtcandno" @bind-Value="_candno" Label="Candidate Number" />
+                    <FluentTooltip Anchor="txtcandno" HideTooltipOnCursorLeave="true" Position=TooltipPosition.End Delay=200>eg S0101/0001 or By separate S0110/0005,S2233/0001..</FluentTooltip>
+                }
+
+            </FluentGridItem>
+
+
+            <FluentGridItem Class="mt-4" xs="12" sm="6" md="12">
+
+                <FluentButton @onclick="AddCand">
+                    ADD
+                </FluentButton>
+
+            </FluentGridItem>
+
+            <FluentOverlay @bind-Visible=@isVisible>
+                <FluentProgressRing />
+            </FluentOverlay>
+            <FluentGridItem Class="mt-6" xs="12" sm="6" md="12">
+                <table>
+
+                    <tr>
+                        @foreach (var h in headings)
+                        {
+                            <th>@h</th>
+                        }
+                    </tr>
+
+                    @foreach (var schl in candlist)
+                    {
+                        <tr>
+                            <td>@schl.SzCandidatesNumber</td>
+                            <td>@schl.Fname</td>
+                            <td>@schl.Oname</td>
+                            <td>@schl.Sname</td>
+                            <td><FluentButton  @onclick="@(()=> DeleteCandRow(schl))"></FluentButton></td>
+                        </tr>
+                    }
+                </table>
+
+
+
+            </FluentGridItem>
+
+        </FluentStack>
+    </FluentGrid>
+</FluentCard>
+
+
+
+@code {
+    private List<ParticularModel> candlist = new();
+    [Parameter]
+    //public SifaUpdateRecord content { get; set; } = default!;
+    public string username { get; set; } = "sa";
+    string[] headings = { "CNumber", "Fname", "Oname", "Sname", "Action" };
+    List<String> candrows = new List<String>();
+    private string _candno = "";
+    private bool isVisible = false;
+    //	private bool dataLoaded=false;
+    string? _myUsername;
+
+    private async Task AddCand()
+    {
+        isVisible = true;
+        //dataLoaded = true;
+        StateHasChanged();
+        _myUsername = username;
+        List<string> candlinelist = new();
+
+        foreach (string subcand in _candno.Split(','))
+        {
+            if (!string.IsNullOrEmpty(subcand) && subcand.Length >= 4)
+            {
+                candlinelist.Add(subcand);
+            }
+        }
+
+        if (candlinelist.Count() == 0)
+        {
+            snackBar.ShowWarning("There is no school entered!", 3000);
+            return;
+        }
+
+        foreach (var mwana in candlinelist)
+        {
+            if (_myUsername != null)
+            {
+                var mycand = await OlevelService.GetParticularByCandno(mwana.Trim().ToUpper() + "%", _myUsername);
+
+                if (mycand.Count() != 0)
+                {
+                    var p = OlevelService.AddParticularAll(mycand);
+
+                }
+            }
+
+
+        }
+        candlist = await OlevelService.GetAllParticularSqlite();
+        isVisible = false;
+        // StateHasChanged();
+        if (candlist.Count() == 0)
+        {
+            isVisible = false;
+            StateHasChanged();
+            snackBar.ShowError("Candidate not found!,check selected Database", 2000);
+            return;
+        }
+
+    }
+
+    private async void DeleteCandRow(ParticularModel cModel)
+    {
+        //bool? result = await _dialogService.ShowMessageBox(
+        //"Delete Confirmation",
+        //"Deleting can not be undone!",
+        //yesText: "Delete!", cancelText: "Cancel");
+
+        //if (result ?? false)
+        //{
+        var response = await OlevelService.DeleteParticular(cModel);
+        if (response > 0)
+        {
+            candlist = await OlevelService.GetAllParticularSqlite();
+            this.StateHasChanged();
+        }
+        //}
+    }
+}

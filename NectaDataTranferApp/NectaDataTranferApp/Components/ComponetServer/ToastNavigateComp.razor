@@ -1,0 +1,82 @@
+﻿@using NectaDataTranferApp.Services
+@inject NavigationManager NavigationManager
+
+@inject ToastServiceNavigate ToastServiceNavigate
+<div  style="position: fixed; top: 1rem; right: 1rem; z-index: 1000;">
+    @if (show)
+    {
+        <div  style="background-color: cadetblue; color: #fff; padding: 1rem; border-radius: 5px;">
+            <strong>@heading</strong>
+            <p>@message</p>
+            @if (navigate)
+            {
+                <FluentStack HorizontalAlignment="HorizontalAlignment.End" HorizontalGap="1">
+                <FluentSpacer />
+                <FluentButton Id="btnOk" Class="save" Appearance="Appearance.Accent" @onclick="NavigateToPage">OK</FluentButton>
+                <FluentButton Id="btnCancel" Class="save" Appearance="Appearance.Outline" @onclick="NotNavigateToPage">Cancel</FluentButton>
+                </FluentStack>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private string? message;
+    private string? heading;
+    private int? timeout;
+    private bool show=false;
+    private bool navigate;
+    private string? navigateTo;
+
+    protected override void OnInitialized()
+    {
+        ToastServiceNavigate.OnShow -= ShowToast;
+        ToastServiceNavigate.OnHide -= HideToast;
+
+        ToastServiceNavigate.OnShow += ShowToast;
+        ToastServiceNavigate.OnHide += HideToast;
+    }
+
+    private void ShowToast(string message, string heading, int timeout, bool navigate, string navigateTo)
+    {
+        this.message = message;
+        this.heading = heading;
+        this.timeout = timeout;
+        this.navigate = navigate;
+        this.navigateTo = navigateTo;
+        this.show = true;
+      
+        if (!navigate) //this will automatic go to another page
+        {
+            Task.Delay(timeout).ContinueWith(_ => // Adjust delay as needed
+       {
+           HideToast();
+       });
+        }
+        StateHasChanged();
+    }
+    private void NavigateToPage()
+    {
+        if (!string.IsNullOrEmpty(navigateTo))
+        {
+            NavigationManager.NavigateTo(navigateTo);
+        }
+        HideToast();
+    }
+    private void NotNavigateToPage()
+    {
+       
+        HideToast();
+    }
+    private void HideToast()
+    {
+        show = false;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        ToastServiceNavigate.OnShow -= ShowToast;
+        ToastServiceNavigate.OnHide -= HideToast;
+    }
+}

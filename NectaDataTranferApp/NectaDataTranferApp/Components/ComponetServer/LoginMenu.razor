@@ -1,0 +1,112 @@
+﻿
+
+@inject NavigationManager Navigation
+@inject SessionService sessionservice
+
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+		
+@if (user != null)
+{
+
+    <FluentStack HorizontalAlignment="@HorizontalAlignment.End"
+                 VerticalAlignment="@VerticalAlignment.Center"
+                 Style="height: 48px; padding-inline-end: 0px; ">
+        <FluentProfileMenu Status="@PresenceStatus.Available" Initials="@user.UserName">
+            <HeaderTemplate>
+                <FluentStack>
+                  @*   <FluentLabel>@user.UserName</FluentLabel> *@
+                    <FluentSpacer />
+                    <FluentButton OnClick="LogOutAsync" BackgroundColor="var(--highlight-bg)" Color="var(--error)">Logout</FluentButton>
+                </FluentStack>
+                @*   <FluentLabel Typo="@Typography.Header">Login</FluentLabel> *@
+            </HeaderTemplate>
+
+            <FooterTemplate>
+                <FluentStack>
+
+                    @*  <FluentAnchor Appearance="@Appearance.Hypertext"
+                Href="/"
+                Target="_blank">LogIn</FluentAnchor> *@
+                </FluentStack>
+            </FooterTemplate>
+        </FluentProfileMenu>
+    </FluentStack>
+
+  @*   <MudIconButton Color="Color.Inherit" OnClick="LogOutAsync">LogOut</MudIconButton> *@
+    @*<MudMenu Icon="@Icons.Filled.Person" Color="Color.Inherit" Direction="Direction.Right" OffsetY="true">
+		<MudMenuItem OnClick="LogOutAsync">Logout</MudMenuItem>
+		<MudMenuItem OnClick="AboutPage">About</MudMenuItem>
+	</MudMenu>*@
+}
+else
+{
+    <FluentStack HorizontalAlignment="@HorizontalAlignment.End"
+                 VerticalAlignment="@VerticalAlignment.Center"
+                 Style="height: 48px;  padding-inline-end: 0px; ">
+
+        <FluentProfileMenu Status="@PresenceStatus.Offline" Initials="Offline">
+            <HeaderTemplate>
+                 <FluentStack>
+                    <FluentSpacer />
+                    <FluentButton OnClick='() => Navigation.NavigateTo("/")' BackgroundColor="var(--highlight-bg)" Color="var(--error)">Login</FluentButton>
+                </FluentStack>
+              @*   <FluentLabel Typo="@Typography.Header">Login</FluentLabel> *@
+              </HeaderTemplate>
+           
+            <FooterTemplate>
+                <FluentStack>
+                  
+                   @*  <FluentAnchor Appearance="@Appearance.Hypertext"
+                                  Href="/"
+                                  Target="_blank">LogIn</FluentAnchor> *@
+                </FluentStack>
+            </FooterTemplate>
+        </FluentProfileMenu>
+
+        @* <FluentProfileMenu Status="@PresenceStatus.Offline"
+                           Initials="LogIn"
+                           HeaderButton="LogIn"
+                           OnHeaderButtonClick='() => Navigation.NavigateTo("/")'
+                           Style="min-width: 230px;" /> *@
+    </FluentStack>
+   @*  <MudIconButton Color="Color.Inherit" OnClick='() => Navigation.NavigateTo("/")'>LogIn</MudIconButton> *@
+}
+
+@code {
+    //[CascadingParameter]
+    //private Task<AuthenticationState> authnticationState { get; set; }
+ 
+    private UserDto user;
+    private async Task GetSessionUser()
+    {
+        user = await sessionservice.GetUserSession("user1");
+
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await GetSessionUser();
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task LogOutAsync()
+    {
+
+        Setting.SifaSqlConnectionModel = null;
+        await sessionservice.DeleteUserSession("user1");
+        await sessionservice.DeleteUserSession("user2");
+        Navigation.NavigateTo("/", true);
+
+    }
+    private async Task AboutPage()
+    {
+
+        Navigation.NavigateTo("/about");
+
+    }
+
+}

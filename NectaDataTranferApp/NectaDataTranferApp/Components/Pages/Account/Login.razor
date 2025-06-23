@@ -1,0 +1,361 @@
+﻿@page "/"
+@using NectaDataTranferApp.Components.ComponetServer
+@using NectaDataTranferApp.Components.Pages.Account
+<FluentToastProvider />
+
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+
+ <div style={display: "flex", justifyContent: "center"}>
+    <FluentCard >
+        <FluentGrid Justify="JustifyContent.Center" >
+       
+      
+        <FluentGridItem xs="12">
+           
+            <p>WelcomeTo NECTA DataTransfer v2.2</p>
+                    <FluentStack VerticalAlignment="VerticalAlignment.Center" VerticalGap="20" Orientation="Orientation.Vertical" >
+                      
+                            <FluentCombobox Id="cmbSource" Items=@stringOptions
+                                            OptionText="@(i => i.Text)"
+                                            OptionValue="@(i=>i.Value)"
+                                            OptionSelected="@(i => i.Selected)"
+                                            @bind-SelectedOption="@selectedStringOption"
+                                    ValueChanged="(()=>SelectSource())" />
+          
+
+                    @if (selectedStringOption?.Value == "Sql")
+                        {
+                        <SqlEditFormComp @rendermode=RenderMode.InteractiveServer model2="@_sqlmodel" _host2=@_sqlmodel.Host _port2=@_sqlmodel.Port _username2=@_sqlmodel.Username _pwd2=@_sqlmodel.Password OnValidSubmit="SqlOnConnect"></SqlEditFormComp>
+                     }
+                    else if (selectedStringOption?.Value == "MysqlOres" || selectedStringOption?.Value == "MysqlPrem" || selectedStringOption?.Value == "MysqlPremSecondary" || selectedStringOption?.Value == "MysqlCA")
+                    {
+                        <MysqlEditFormComp @rendermode=RenderMode.InteractiveServer model2="@_mysqlmodel" _host2=@_mysqlmodel.Host _port2=@_mysqlmodel.Port _username2=@_mysqlmodel.Username _pwd2=@_mysqlmodel.Password OnValidSubmit="MysqlOnConnect"></MysqlEditFormComp>
+                    }
+                    else
+                    {
+                        <p> @selectedStringOption?.Value</p>
+
+                    }
+
+
+            </FluentStack>
+
+        
+        </FluentGridItem>
+  
+    </FluentGrid>
+  
+</FluentCard>
+</div>
+
+@code {
+
+    Option<string> selectedStringOption = default!;
+
+
+    private readonly MysqlModel _mysqlmodel = new();
+    private readonly SqlModel _sqlmodel = new();
+    private string datasource = "";
+    private int _port = 3306;
+    //private string _host = "Localhost";  //"192.168.20.21";
+    //private string _username = "root";
+    //private string _pwd = "usajili";//"coder2019";
+    //private string _host = "192.168.20.22"; online reg
+    private string _host = "192.168.20.19";
+    private string _username = "";
+    private string _pwd = "";
+    private string pconnstrMysql = string.Empty;
+    private string pconnstrSql = string.Empty;
+    private int _connId;
+    private string _connectionName;
+    private string _connectionString;
+    private readonly string datasourceDB = "";
+    private bool isLoad=false;
+
+    [Inject]
+    public NavigationManager NavManager { get; set; }
+
+    [Inject]
+    public ISifaConnectionService SifaConnectionService { get; set; }
+
+    [Inject]
+    public IConnectionService ConnectionService { get; set; }
+
+    [Inject] public SessionService SessionService { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _sqlmodel.Host = "DBSRV01";
+        _sqlmodel.Port = 1433;
+        _sqlmodel.Username = "";
+        _sqlmodel.Password = "";
+        _mysqlmodel.Host = _host;
+        _mysqlmodel.Port = _port;
+        _mysqlmodel.Username = _username;
+        _mysqlmodel.Password = _pwd;
+        // datasource = "Sql";
+
+    }
+
+
+
+    List<Option<string>> stringOptions = new()
+        {
+           { new Option<string> { Value = "Sql", Text = "Sifa",Selected = true } },
+           { new Option<string> { Value = "MysqlOres", Text = "Online Registration"} },
+           { new Option<string> { Value = "MysqlPrem", Text = "PreM (Primary)"} },
+           { new Option<string> { Value = "MysqlPremSecondary", Text = "PremS (Secondary)"} },
+           // { new Option<string> { Value = "MysqlCA", Text = "CA"} },
+
+        };
+
+
+    private void SelectSource()
+    {
+
+        StateHasChanged();
+        if (selectedStringOption?.Value == "MysqlPrem" || selectedStringOption?.Value == "MysqlPremSecondary" || selectedStringOption?.Value == "MysqlCA" || selectedStringOption?.Value == "MysqlHuduma" || selectedStringOption?.Value == "MysqlOres")
+        {
+            _mysqlmodel.Host = _host;
+            _mysqlmodel.Port = _port;
+            _mysqlmodel.Username = _username;
+            _mysqlmodel.Password = _pwd;
+            datasource = selectedStringOption.Value;
+        }
+        else if (selectedStringOption?.Value == "Sql")
+        {
+            _sqlmodel.Host = "DBSRV01";
+            _sqlmodel.Port = 1433;
+            _sqlmodel.Username = "";
+            _sqlmodel.Password = "";
+            datasource = selectedStringOption.Value;
+
+
+        }
+        StateHasChanged();
+    }
+    public async Task SetSessionUser(string uname, string mkey)
+    {
+        UserDto user = new()
+                {
+                    UserName = uname,
+                    MenuKey = mkey
+                };
+        await SessionService.SetUserSession("user1", user);
+
+    }
+
+    private async Task MysqlOnConnect(MysqlModel cmodel)
+    {
+        datasource = selectedStringOption.Value!;
+        if (datasource == "")
+        {
+            snackBar.ShowWarning("Please select Service on top!", 4000);
+
+            return;
+        }
+
+        //	ishidden = true;
+
+        _host = _mysqlmodel.Host;
+        _port = _mysqlmodel.Port;
+        _username = _mysqlmodel.Username;
+        _pwd = _mysqlmodel.Password;
+
+        pconnstrMysql = "Server=" + _host + ";" + "Port=" + _port + ";" + "UserId=" + _username + ";" + "Password=" + _pwd + ";Charset=latin1;allowLoadLocalInfile=true;ConnectionTimeout = 5;SslMode=none;Allow User Variables=True;";
+
+        //bool checkmysqlconn = await ConnectionService.OpenConnMysql(pconnstrMysql);
+        var result = await ConnectionService.OpenConnMysql(pconnstrMysql);
+
+
+        if (result.BooleanResponse == true)
+        {
+            int response = -1;
+            _connId = 0;
+            _connectionName = "mysql";
+            _connectionString = pconnstrMysql;
+
+            // To check if Sqlite has connection string
+            await GetConnectionId(_connectionName, _username);
+
+            ConnectionModel conMod = new()
+                    {
+                        Id = _connId,
+                        Name = _connectionName,
+                        ConnectionString = Setting.EncryptionMe(_connectionString),
+                        Username = _username,
+                        Pwd = Setting.EncryptionMe(_pwd),
+                        Port = _port,
+                        Host = _host
+                    };
+
+
+
+            string menukey = datasource switch
+            {
+                "MysqlPrem" => "1",
+                "MysqlPremSecondary" => "2",
+                "MysqlCA" => "3",
+                "MysqlHuduma" => "5",
+                "MysqlOres" => "6",
+                _ => "",
+            };
+
+            await SetSessionUser(_username, menukey);
+
+            if (_connId > 0)
+            {
+                //Update Connection string
+                response = await ConnectionService.UpdateConnection(conMod);
+            }
+            else
+            {
+                response = await ConnectionService.AddConnection(conMod);
+
+            }
+
+            //var customAuthStateProvider = (CustomAuthenticationStateProvider)authStateProvider;
+            //await customAuthStateProvider.UpdateAuthenticationState(new UserSession
+            //{
+            //    Username = _username,
+            //    Role = "User"
+            //});
+            snackBar.ShowSuccess("Connection Successful", 1000);
+
+
+            NavManager.NavigateTo("/home", true);
+            //await GetSourceDatabase();
+            //ishidden = false;
+            StateHasChanged();
+
+        }
+        else
+        {
+            snackBar.ShowError(result.Message!, 4000);
+            return;
+
+        }
+    }
+    private async ValueTask GetConnectionId(string conntype, string username)
+    {
+        List<ConnectionModel> conModelList = await ConnectionService.GetConnectionByNameUsername(conntype, username);
+
+        IEnumerable<int> query2 = from element in conModelList
+                                  where element.Name == conntype && element.Username == username
+                                  select element.Id;
+
+        _connId = query2.FirstOrDefault();
+
+    }
+    private async ValueTask SifaGetConnectionId(string conntype, string username)
+    {
+        List<SifaConnectionModel> conModelList = await SifaConnectionService.GetConnectionByNameUsername(conntype, username);
+
+        IEnumerable<int> query2 = from element in conModelList
+                                  where element.Name == conntype && element.Username == username
+                                  select element.Id;
+
+        _connId = query2.FirstOrDefault();
+
+    }
+    async Task StartLoadingAsync()
+    {
+        isLoad = true;
+        await InvokeAsync(StateHasChanged);
+
+    }
+    private async Task SqlOnConnect(SqlModel cmodel)
+    {
+
+
+
+        // await InvokeAsync(() => { StartLoadingAsync() ; StateHasChanged(); });
+        datasource = selectedStringOption.Value!;
+       // StateHasChanged();
+
+     //  await StartLoadingAsync();
+
+        
+        //snackBar.ShowError("Cannot connect to server.Contact administrator", 4000);
+
+
+        string menukey = "4";
+
+        if (datasource == "")
+        {
+            snackBar.ShowWarning("Please select Service on top!", 4000);
+
+            return;
+        }
+        //ishidden = true;
+       
+        _host = _sqlmodel.Host;
+        _port = _sqlmodel.Port;
+        _username = _sqlmodel.Username;
+        _pwd = _sqlmodel.Password;
+
+        pconnstrSql = "Data Source=" + _host + ";Initial Catalog= " + datasourceDB + ";User ID=" + _username + ";" + "password = " + _pwd + ";" + "Connection Timeout=3;Encrypt=False";
+
+        var result = await ConnectionService.OpenConnSql(pconnstrSql);
+
+
+        if (result.BooleanResponse == true)
+        {
+
+            int response = -1;
+            _connId = 0;
+            _connectionName = "sql";
+            _connectionString = pconnstrSql;
+
+            // To check if Sqlite has connection string
+            await SifaGetConnectionId(_connectionName, _username);
+
+            SifaConnectionModel conMod = new()
+               {
+                   Id = _connId,
+                   Name = _connectionName,
+                   ConnectionString = Setting.EncryptionMe(_connectionString),
+                   Username = _username,
+                   Pwd = Setting.EncryptionMe(_pwd),
+                   Port = _port,
+                   Host = _host
+
+               };
+
+            await SetSessionUser(_username, menukey);
+
+            if (_connId > 0)
+            {
+                //Update Connection string
+                response = await SifaConnectionService.UpdateConnection(conMod);
+            }
+            else
+            {
+                response = await SifaConnectionService.AddConnection(conMod);
+
+            }
+            snackBar.ShowSuccess("Connection Successful.",2000);
+
+            NavManager.NavigateTo("/home", true);
+            //await GetSourceDatabase();
+
+            //ishidden = false;
+            // isLoad = false;
+            // StateHasChanged();
+
+        }
+        else
+        {
+            //isLoad = false;
+            snackBar.ShowError(result.Message!,6000);
+           // StateHasChanged();
+            return;
+
+           }
+
+        }
+
+   
+
+}
+

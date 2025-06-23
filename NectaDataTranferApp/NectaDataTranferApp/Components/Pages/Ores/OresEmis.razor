@@ -1,0 +1,1724 @@
+﻿@page "/oresemis"
+@page "/emis"
+
+@using NectaDataTranferApp.Components.ComponetServer
+@using System.Data
+@using System.ComponentModel
+@using System.Data.SqlClient
+@using NectaDataTransfer.Shared.Models.CA
+
+@inject NavigationManager NavManager;
+@inject ICsvService CsvService;
+@inject ISqlService SqlService;
+@inject ITransferOption TransferOptionService;
+@inject IConnectionService ConnectionService;
+@inject IDialogService _dialogService;
+@inject SessionService sessionservice;
+<FluentToastProvider />
+<FluentDialogProvider />
+@rendermode @(new InteractiveServerRenderMode(prerender:false));
+
+
+<FluentGrid Style="width=100%">
+    <FluentLabel Style="margin-top:20px"> Destination to Emis</FluentLabel>
+    <FluentCard Style="margin-top:10px">
+
+        <FluentStack Class="mt-50" VerticalGap="5" Orientation="Orientation.Horizontal">
+            <FluentStack hidden="@ishidden" VerticalGap="5" Orientation="Orientation.Vertical">
+
+                <FluentGridItem Class="mt-4" xs="12" sm="6" md="12">
+                    <FluentCombobox @bind-Value="@datasource" TOption="string">
+                        <FluentOption Value="@("Sql")"></FluentOption>
+                    </FluentCombobox>
+                </FluentGridItem>
+
+                <SqlEditFormComp model2="@ModelToEdit" _host2=@ModelToEdit.Host _port2=@ModelToEdit.Port _username2=@ModelToEdit.Username _pwd2=@ModelToEdit.Password OnValidSubmit="OnValidSubmit"></SqlEditFormComp>
+            </FluentStack>
+
+            <FluentStack hidden="@ishiddenTable" VerticalGap="20" Orientation="Orientation.Vertical">
+                <FluentGridItem xs="12" sm="6" md="12">
+                    @if (sqldatabases != null)
+                    {
+                        <FluentCombobox Height="250px" Autocomplete="ComboboxAutocomplete.Both" @bind-Value="@datasourceDB" TOption="string" Label="Destination Database">
+                            @foreach (var dblist in sqldatabases)
+                            {
+                                <FluentOption Value="@dblist.SqlDatabase">@dblist.SqlDatabase</FluentOption>
+                            }
+                        </FluentCombobox>
+                    }
+
+                </FluentGridItem>
+
+                <FluentGridItem Class="mt-4" xs="12" sm="6" md="12">
+
+                    <FluentCombobox @bind-Value="@_classname" TOption="string" Disabled="true">
+                        <FluentOption Value="@_classname">@_classname</FluentOption>
+
+                    </FluentCombobox>
+                </FluentGridItem>
+
+                <FluentGridItem Class="mt-2" xs="12" sm="6" md="12">
+
+                    <FluentRadioGroup @bind-Value="@transferOption">
+                        <FluentRadio Disabled="true" Value="@("1")" Color="Color.Success">First Insert</FluentRadio>
+                        <FluentRadio Disabled="true" Value="@("2")" Color="Color.Success">Update</FluentRadio>
+                    </FluentRadioGroup>
+
+                </FluentGridItem>
+
+                <FluentGridItem Class="mt-4" xs="12" sm="6" md="12">
+                    <FluentButton Disabled="@isButtonDisable" Size="Size.Small" @onclick="TransferData" IconEnd="@(new Icons.Regular.Size24.ArrowCircleDown())"
+                                  Appearance="Appearance.Accent">
+
+                        <FluentLabel Color=Color.Fill Class="ms-2">Import @_classname to Emis</FluentLabel>
+                    </FluentButton>
+
+                </FluentGridItem>
+
+                <FluentGridItem Class="mt-8" xs="12" sm="6" md="12">
+                    <div style="display: flex; align-items: center;">
+                        <FluentProgress Style="width: 300px; flex: 1; margin-right: 10px;" Color="Color.Info" Stroke="ProgressStroke.Large" Value="@Valueregion" Max="@_maxvalueregion">
+                        </FluentProgress>
+                        <FluentLabel Style="width: 20px;" Color="Color.Accent">
+                            <b>@_regpercentregion%</b>
+                        </FluentLabel>
+                    </div>
+                </FluentGridItem>
+                <FluentGridItem Class="mt-2" xs="12" sm="6" md="12">
+                    @if (_regpercentregion == 100)
+                    {
+                        <FluentLabel>Total Data Source Transfered : @_maxvalueregion </FluentLabel>
+                    }
+                    else
+                    {
+                        <FluentLabel>Region Transfered : @regiondisplay </FluentLabel>
+                    }
+                </FluentGridItem>
+
+                <FluentGridItem Class="mt-8" xs="12" sm="6" md="12">
+                    <div style="display: flex; align-items: center;">
+                        <FluentProgress Style="width: 300px; flex: 1; margin-right: 10px;" Color="Color.Info" Stroke="ProgressStroke.Large" Value="@Value" Max="@_maxvalue">
+
+                        </FluentProgress>
+                        <FluentLabel Style="width: 20px;" Color="Color.Accent">
+                            <b>@_regpercent%</b>
+                        </FluentLabel>
+                    </div>
+                </FluentGridItem>
+                <FluentGridItem Class="mt-2" xs="12" sm="6" md="12">
+
+                    @if (_regpercent == 100 && _regpercentregion == 100)
+                    {
+                        <FluentLabel>Total Candidate Transfered : @TotalCandidate  </FluentLabel>
+                    }
+                    else
+                    {
+                        <FluentLabel>Current Data : @displaydetail </FluentLabel>
+                    }
+
+                </FluentGridItem>
+                <FluentGridItem Class="mt-2" xs="12" sm="6" md="12">
+                    <div style="height: 200px;width:500px; margin-top:15px; overflow:auto; scroll;">
+                        <FluentDataGrid Items="@dlist" Style="height=100%;width:100%;" GridTemplateColumns="2.5fr 1.5fr I.5fr 2fr" ResizableColumns=true>
+                            <PropertyColumn  Property="@(p=>p.Code)" Sortable="true" />
+                            <PropertyColumn Title="Candidates"  Property="@(p=>p.Records)" Sortable="true" />
+                            <PropertyColumn  Property="@(p=>p.Status)" Sortable="false" />
+                        </FluentDataGrid>
+                    </div>
+                </FluentGridItem>
+            </FluentStack>
+
+        </FluentStack>
+
+
+    </FluentCard>
+</FluentGrid>
+
+
+@code {
+    [Parameter]
+    public int id { get; set; }
+    bool ishidden = false;
+    bool ishiddenTable = true;
+    private SqlConnection connection;
+    private string datasource = "Sql";
+    private string _classname;
+    //private int _csvclassid;
+    private string datasourceDB = "master";
+    private int _port = 1433;
+    string pconnstrSql;
+    private string _host = "DBSRV01";//"127.0.0.1";
+    private string _username = "";
+    private string _pwd = "";
+    public string transferOption { get; set; } = string.Empty;
+    SqlModel model = new();
+    private int _connId;
+    private string _connectionName;
+    private string _connectionString;
+    private string _connType;
+    private List<SqlDatabaseModel> sqldatabases = new();
+    private List<RegionModel> regions = new();
+    private List<CsvModel> csvdata = new();
+    private List<CsvModelSchool> csvdataschool = new();
+    private List<SifaExamModel> csvdatasifa = new();
+    private List<CsvModelSubject> csvdatasubject = new();
+    private List<CAModelSubject> csvdatasubjectCA = new();
+    private List<CsvModel> csvregions = new();
+    private List<SchoolModel> schools = new();
+    private List<CsvModel> schoolsCsv = new();
+    private List<TransferOptionModel> transferOptions = new();
+    private List<TransferLogModel> transferOptionDB = new();
+    private bool _disposed;
+    public int Value { get; set; }
+    public int _regpercent { get; set; }
+    private string displaydetail;
+    private int _maxvalue;
+    public int Valueregion { get; set; }
+    public int _regpercentregion { get; set; }
+    private string regiondisplay;
+    private int _maxvalueregion;
+    private int TotalCandidate;
+    private int TotalData;
+    string[] headings = { "Code", "Records", "Status" };
+    record DataListModel(Guid Id, string Code, string Records, string Status);
+    private IQueryable<DataListModel>? dlist;
+    private List<DataListModel> datalists = new();
+
+    List<String> rows = new List<String>();
+
+    private SqlModel ModelToEdit = new();
+    private UserDto user2;
+    private UserDto user1;
+    private bool isButtonDisable = false;
+    private int caQueryId;
+
+    private async Task GetSessionUser()
+    {
+        user2 = await sessionservice.GetUserSession("user2");
+
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        await GetSessionUser();
+        if (user2 != null)
+        {
+            user1 = await sessionservice.GetUserSession("user1");
+            await GetSourceDatabase();
+            await GetSourceClass();
+            await GetTransferOption(user1.UserName);
+            ishidden = true;
+            ishiddenTable = false;
+            StateHasChanged();
+        }
+        else
+        {
+            ModelToEdit.Host = _host;
+            ModelToEdit.Port = _port;
+            ModelToEdit.Username = _username;
+            ModelToEdit.Password = _pwd;
+        }
+
+    }
+    private async Task SetSessionUser(string sessionkey, string uname, string menukey)
+    {
+        var user = new UserDto();
+        user.UserName = uname;
+        user.MenuKey = menukey;
+        await sessionservice.SetUserSession(sessionkey, user);
+
+    }
+
+    private async Task OnValidSubmit(SqlModel cmodel)
+    {
+
+        _host = ModelToEdit.Host;
+        _port = ModelToEdit.Port;
+        _username = ModelToEdit.Username;
+        _pwd = ModelToEdit.Password;
+
+        pconnstrSql = "Data Source=" + _host + ";Initial Catalog= " + datasourceDB + ";User ID=" + _username + ";" + "password = " + _pwd + ";" + "Connection Timeout=2;Encrypt=False";
+
+        if (OpenConnSql(pconnstrSql))
+        {
+            int response = -1;
+            _connId = 0;
+            _connectionName = "sql";
+            _connectionString = pconnstrSql;
+
+            // To check if Sqlite has connection string
+            await GetConnectionId(_connectionName, _username);
+            ConnectionModel conMod = new()
+                {
+                    Id = _connId,
+                    Name = _connectionName,
+                    ConnectionString = Setting.EncryptionMe(_connectionString),
+                    Username = _username,
+                    Port = _port,
+                    Pwd = Setting.EncryptionMe(_pwd),
+                    Host = _host
+
+                };
+            await SetSessionUser("user2", _username, "2");
+
+            if (_connId > 0)
+            {
+                //Update Connection string
+                response = await ConnectionService.UpdateConnection(conMod);
+            }
+            else
+            {
+                response = await ConnectionService.AddConnection(conMod);
+
+            }
+            snackBar.ShowSuccess("Connection Successful.", 2000);
+
+            user1 = await sessionservice.GetUserSession("user1");
+            user2 = await sessionservice.GetUserSession("user2");
+            StateHasChanged();
+            await GetSourceDatabase();
+            await GetSourceClass();
+            await GetTransferOption(user1.UserName);
+            ishidden = true;
+            ishiddenTable = false;
+            StateHasChanged();
+        }
+        else
+        {
+            return;
+        }
+    }
+    private async Task GetSourceDatabase()
+    {
+        sqldatabases = await SqlService.GetSqlDatabases(user2.UserName);
+
+        var query2 = from element in sqldatabases
+                     where element.SqlDatabase != ""
+                     select element.SqlDatabase;
+
+        datasourceDB = query2.FirstOrDefault();
+        StateHasChanged();
+    }
+
+    private async Task GetSourceClass()
+    {
+        var mycsvid = await CsvService.GetClassIdFromClassModel();
+
+        if (mycsvid != null)
+        {
+            id = mycsvid.ClassId;
+        }
+        else
+        {
+            snackBar.ShowWarning("Please get source data first!", 4000);
+            return;
+        }
+
+        var getclass = await CsvService.GetClassById(id);
+
+        if (getclass != null)
+
+        {
+            _classname = getclass.ClassName;
+            StateHasChanged();
+        }
+        else
+        {
+            snackBar.ShowInfo("Try again!", 3000);
+            return;
+        }
+
+    }
+
+    // private async Task GetTransferOption()
+    // {
+
+    // 	var topt = await TransferOptionService.GetAllOption();
+
+    // 	var query2 = from element in topt
+    // 					where element.TransferOption != ""
+    // 					select element.TransferOption;
+
+    // 	transferOption = query2.FirstOrDefault();
+    // 	StateHasChanged();
+
+    // 	var getclass = await CsvService.GetClassById(id);
+
+    // 	if (getclass != null)
+
+    // 	{
+    // 		_classname = getclass.ClassName;
+    // 		StateHasChanged();
+    // 	}
+    // 	else
+    // 	{
+    // 		snackBar.Add("Try again!", Severity.Success, config => { config.VisibleStateDuration = 2000; });
+    // 		return;
+    // 	}
+
+    // }
+
+    private async Task GetTransferOption(string uname)
+    {
+        var topt = await TransferOptionService.GetAllOption(uname);
+        var query2 = from element in topt
+                     where element.TransferOption != ""
+                     select element.TransferOption;
+
+        transferOption = query2.FirstOrDefault();
+        StateHasChanged();
+    }
+
+    private async Task TransferData()
+    {
+        // To Clear display Regions list on Interface if exist
+        rows.Clear();
+        datalists.Clear();
+        isButtonDisable = true;
+        StateHasChanged();
+        if (datasourceDB != "")
+        {
+            _username = user2.UserName;
+
+            var conModelList = await ConnectionService.GetConnectionByNameUsername("sql", _username);
+            if (conModelList.Count() != 0)
+            {
+                foreach (var item in conModelList)
+                {
+                    _pwd = Setting.DecryptionMe(item.Pwd);
+                    _host = item.Host;
+                    _port = item.Port;
+                }
+            }
+            else
+            {
+                snackBar.ShowInfo("Please Logout and Login again!", 3000);
+                isButtonDisable = false;
+                StateHasChanged();
+                return;
+            }
+
+            string pconnstrSql = "Data Source=" + _host + ";Initial Catalog= " + datasourceDB + ";User ID=" + _username + ";" + "password = " + _pwd + ";" + "Connection Timeout=0;Encrypt=False";
+
+            int response = -1;
+            _connId = 0;
+            _connectionName = "sql";
+            _connectionString = pconnstrSql;
+
+            // To check if Sqlite has connection string
+            await GetConnectionId(_connectionName, _username);
+
+            ConnectionModel conMod = new()
+                {
+                    Id = _connId,
+                    Name = _connectionName,
+                    ConnectionString = Setting.EncryptionMe(_connectionString),
+                    Username = _username,
+                    Port = _port,
+                    Pwd = Setting.EncryptionMe(_pwd),
+                    Host = _host
+                };
+
+            if (_connId > 0)
+            {
+                //Update Connection string
+                response = await ConnectionService.UpdateConnection(conMod);
+            }
+            else
+            {
+                response = await ConnectionService.AddConnection(conMod);
+            }
+
+            TotalCandidate = 0;
+
+            var topt = await GetTrasferOptionDB(transferOption, id);
+
+            if (topt == "-1")
+            {
+                isButtonDisable = false;
+                StateHasChanged();
+                return;
+            }
+
+            if (transferOption == "1")  // Bulk Insert
+            {
+                //To Check If already first insert was conducted
+                //TODO Uncommnet when deployment
+                if (topt == "1")
+                {
+                    // var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+
+                    var dialog = await _dialogService.ShowConfirmationAsync("Do you really want to First Insert these records ? This process already done before.", primaryText: "Yes", secondaryText: "No", "Confirm");
+                    var result = await dialog.Result;
+                    if (result.Cancelled)
+                    {
+                        isButtonDisable = false;
+                        StateHasChanged();
+                        return;
+                    }
+                    //snackBar.Add("You can not do First Insert", Severity.Error, config => { config.VisibleStateDuration = 5000; });
+                }
+                //Delete CSV DataTable
+                //Before Insert delete CSV
+                var dbArgs = new Dictionary<string, string>();
+                dbArgs.Add("@query", "10");
+                var isSucess = await SqlService.RegistrationInsert(dbArgs, user2.UserName);
+
+                if (!isSucess)
+                {
+                    snackBar.ShowError("Missing Storeprocedure Transfer_InsertTableData or you dont have permission to execute on that procedure or missing tables start with name Transfer", 4000);
+                    isButtonDisable = false;
+                    StateHasChanged();
+                    return;
+                }
+                int _inUsajili = 0;
+                caQueryId = 0;
+                csvregions = await CsvService.GetRegionsFromCsvDesti(_inUsajili);
+
+                if (csvregions.Count() != 0)
+                {
+                    int regionscount = csvregions.Count();
+                    int TotalCandidateRegion = 0;
+                    bool completestatus = false;
+                    // Insert per Region
+                    for (int j = 0; j < regionscount; j++)
+                    {
+                        int csvDataRowCount;
+                        int rowcount2;
+                        double stps2;
+                        int Steps2;
+                        int skp2;
+                        string comstatus;
+                        DataTable dt2 = new DataTable();
+                        DataTable dt2school = new DataTable();
+                        DataTable dt2sifa = new DataTable();
+                        DataTable dt2subject = new DataTable();
+                        DataTable dt2subjectCA = new DataTable();
+                        TotalCandidateRegion = 0;
+                        #region	Transfer Details of CSV Data
+
+                        csvdata = await CsvService.GetCsvByRegionDestination(id, csvregions[j].RegionCode, _inUsajili);
+
+                        csvDataRowCount = csvdata.Count;
+                        if (csvDataRowCount != 0)
+                        {
+                            TotalCandidateRegion = csvDataRowCount;
+                            rowcount2 = csvDataRowCount;
+                            stps2 = csvDataRowCount / 10000.00000;
+                            Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                            skp2 = 0;
+
+                            completestatus = false;
+                            comstatus = string.Empty;
+                            regiondisplay = string.Format("Particular of Region {0}", csvregions[j].RegionName);
+
+                            StateHasChanged();
+                            for (int i = 1; i <= Steps2; i++)
+                            {
+                                dt2.Clear();
+                                var listcsv = csvdata.AsEnumerable().Skip(skp2).Take(10000).Select(x => new
+                                {
+                                    x.RegionCode,
+                                    x.RegionName,
+                                    x.DistrictCode,
+                                    x.DistrictName,
+                                    x.SchoolCode,
+                                    x.CandidateNumber,
+                                    x.Name1,
+                                    x.Name2,
+                                    x.Name3,
+                                    x.Sex,
+                                    x.BirthDate,
+                                    x.Address1,
+                                    x.Address2,
+                                    x.Address3,
+                                    x.PhoneNumber,
+                                    x.Vision,
+                                    x.PremNumber,
+                                    x.ReferenceNumber,
+                                    x.ClassId
+                                });
+
+                                // Convert List to Data Table
+                                dt2 = ConvertToDataTable(listcsv.ToList());
+
+                                // Function for Insert CSV from sqlite to sql
+
+                                await SqlService.BulkInsert(dt2, user2.UserName);
+
+                                //TODO : Start to code about registration
+
+                                //	displaydetail = listcsv.Count().ToString();
+                                _maxvalue = Steps2;
+                                Value = i;
+                                _regpercent = Value * 100 / Steps2;
+                                if (_regpercent == 100)
+                                {
+                                    Value -= 1;
+                                    _regpercent = Value * 100 / Steps2;
+                                }
+
+                                skp2 = skp2 + 10000;
+                                StateHasChanged();
+                            }
+                        }
+                        #endregion
+
+                        #region	Transfer Details of CSV School
+
+                        csvdataschool = await CsvService.GetCsvSchoolByRegionDestination(id, csvregions[j].RegionCode);
+
+                        csvDataRowCount = csvdataschool.Count;
+                        if (csvDataRowCount != 0)
+                        {
+
+                            rowcount2 = csvDataRowCount;
+                            stps2 = csvDataRowCount / 10000.00000;
+                            Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                            skp2 = 0;
+
+                            completestatus = false;
+                            comstatus = string.Empty;
+                            regiondisplay = string.Format("Schools of Region {0}", csvregions[j].RegionName);
+
+                            StateHasChanged();
+                            for (int i = 1; i <= Steps2; i++)
+                            {
+                                dt2school.Clear();
+
+                                var listcsv = csvdataschool.AsEnumerable().Skip(skp2).Take(10000).Select(x => new
+                                {
+                                    x.RegionCode,
+                                    x.DistrictCode,
+                                    x.SchoolCode,
+                                    x.SchoolName,
+                                    x.IsEnglishMedium,
+                                    x.SchoolOwner,
+                                    x.DistanceFromDistrict,
+                                    x.NambaWizara
+
+                                });
+
+                                // Convert List to Data Table
+                                dt2school = ConvertToDataTable(listcsv.ToList());
+
+                                // Function for Insert CSV from sqlite to sql
+
+                                await SqlService.BulkInsertSchool(dt2school, _username);
+
+                                //TODO : Start to code about registration
+
+                                //	displaydetail = listcsv.Count().ToString();
+                                _maxvalue = Steps2;
+                                Value = i;
+                                _regpercent = Value * 100 / Steps2;
+                                if (_regpercent == 100)
+                                {
+                                    Value -= 1;
+                                    _regpercent = Value * 100 / Steps2;
+                                }
+
+                                skp2 = skp2 + 10000;
+                                StateHasChanged();
+                            }
+                        }
+                        #endregion
+
+                        #region	Transfer Details of CSV Sifa
+
+                        csvdatasifa = await CsvService.GetCsvSifaByRegionDestination(id, csvregions[j].RegionCode);
+
+                        csvDataRowCount = csvdatasifa.Count;
+                        if (csvDataRowCount != 0)
+                        {
+
+                            rowcount2 = csvDataRowCount;
+                            stps2 = csvDataRowCount / 10000.00000;
+                            Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                            skp2 = 0;
+
+                            completestatus = false;
+                            comstatus = string.Empty;
+                            regiondisplay = string.Format("Sifa of Region {0}", csvregions[j].RegionName);
+
+                            StateHasChanged();
+                            for (int i = 1; i <= Steps2; i++)
+                            {
+                                dt2sifa.Clear();
+                                var listcsv = csvdatasifa.AsEnumerable().Skip(skp2).Take(10000).Select(x => new
+                                {
+                                    x.RegionCode,
+                                    x.SchoolCode,
+                                    x.CandidateNumber,
+                                    x.SifaNumber,
+                                    x.SifaType,
+                                    x.SifaYear,
+                                    x.ClassId
+                                });
+
+                                // Convert List to Data Table
+                                dt2sifa = ConvertToDataTable(listcsv.ToList());
+
+                                // Function for Insert CSV from sqlite to sql
+
+                                await SqlService.BulkInsertSifa(dt2sifa, _username);
+
+                                //TODO : Start to code about registration
+
+                                //	displaydetail = listcsv.Count().ToString();
+                                _maxvalue = Steps2;
+                                Value = i;
+                                _regpercent = Value * 100 / Steps2;
+                                if (_regpercent == 100)
+                                {
+                                    Value -= 1;
+                                    _regpercent = Value * 100 / Steps2;
+                                }
+
+                                skp2 = skp2 + 10000;
+                                StateHasChanged();
+                            }
+                        }
+                        #endregion
+
+                        #region	Transfer Details of CSV Subject
+
+                        csvdatasubject = await CsvService.GetCsvSubjectByRegionDestination(id, csvregions[j].RegionCode);
+
+                        csvDataRowCount = csvdatasubject.Count;
+                        if (csvDataRowCount != 0)
+                        {
+                            rowcount2 = csvDataRowCount;
+                            stps2 = csvDataRowCount / 10000.00000;
+                            Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                            skp2 = 0;
+
+                            completestatus = false;
+                            comstatus = string.Empty;
+                            regiondisplay = string.Format("Subjects of Region {0}", csvregions[j].RegionName);
+
+                            StateHasChanged();
+                            for (int i = 1; i <= Steps2; i++)
+                            {
+                                dt2subject.Clear();
+                                var listcsv = csvdatasubject.AsEnumerable().Skip(skp2).Take(10000).Select(x => new
+                                {
+                                    x.SubjectCode,
+                                    x.RegionCode,
+                                    x.SchoolCode,
+                                    x.CandidateNumber,
+                                    x.ClassId,
+                                    x.Combi
+                                });
+
+                                // Convert List to Data Table
+                                dt2subject = ConvertToDataTable(listcsv.ToList());
+
+                                // Function for Insert CSV from sqlite to sql
+
+                                await SqlService.BulkInsertSubject(dt2subject, _username);
+
+                                //TODO : Start to code about registration
+
+                                //	displaydetail = listcsv.Count().ToString();
+                                _maxvalue = Steps2;
+                                Value = i;
+                                _regpercent = Value * 100 / Steps2;
+                                if (_regpercent == 100)
+                                {
+                                    Value -= 1;
+                                    _regpercent = Value * 100 / Steps2;
+                                }
+
+                                skp2 = skp2 + 10000;
+                                StateHasChanged();
+                            }
+                        }
+                        #endregion
+
+                        #region	Transfer Details of CSV Subject CA
+
+                        csvdatasubjectCA = await CsvService.GetCsvSubjectByRegionDestinationCA(id, csvregions[j].RegionCode);
+
+                        csvDataRowCount = csvdatasubjectCA.Count;
+                        if (csvDataRowCount != 0)
+                        {
+                            rowcount2 = csvDataRowCount;
+                            stps2 = csvDataRowCount / 10000.00000;
+                            Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+                            skp2 = 0;
+
+                            completestatus = false;
+                            comstatus = string.Empty;
+                            regiondisplay = string.Format("Subjects of Region {0}", csvregions[j].RegionName);
+
+                            StateHasChanged();
+                            for (int i = 1; i <= Steps2; i++)
+                            {
+                                dt2subject.Clear();
+                                var listcsv = csvdatasubjectCA.AsEnumerable().Skip(skp2).Take(10000).Select(x => new
+                                {
+                                    x.SubjectCode,
+                                    x.RegionCode,
+                                    x.SchoolCode,
+                                    x.CandidateNumber,
+                                    x.Y1T1,
+                                    x.Y1T2,
+                                    x.Y2T1,
+                                    x.Project,
+                                    x.ClassId
+                                });
+
+                                // Convert List to Data Table
+                                dt2subjectCA = ConvertToDataTable(listcsv.ToList());
+
+                                // Function for Insert CSV from sqlite to sql
+
+                                await SqlService.BulkInsertSubjectCA(dt2subjectCA, _username);
+
+                                //TODO : Start to code about registration
+
+                                //	displaydetail = listcsv.Count().ToString();
+                                _maxvalue = Steps2;
+                                Value = i;
+                                _regpercent = Value * 100 / Steps2;
+                                if (_regpercent == 100)
+                                {
+                                    Value -= 1;
+                                    _regpercent = Value * 100 / Steps2;
+                                }
+
+                                skp2 = skp2 + 10000;
+                                StateHasChanged();
+                            }
+                        }
+                        #endregion
+
+                        if (_classname.ToLower()=="nne")
+                        {
+                            //INSERTING REGIONS
+                            var dbArgs1 = new Dictionary<string, string>();
+                            dbArgs1.Add("@query", "1");
+                            dbArgs1.Add("@regno", csvregions[j].RegionCode);
+                            await SqlService.RegistrationInsert(dbArgs1, _username);
+
+                            //INSERTING DISTRICT
+                            var dbArgs2 = new Dictionary<string, string>();
+                            dbArgs2.Add("@query", "2");
+                            dbArgs2.Add("@regno", csvregions[j].RegionCode);
+                            await SqlService.RegistrationInsert(dbArgs2, _username);
+
+                            //INSERTING SCHOOL
+                            var dbArgs3 = new Dictionary<string, string>();
+                            dbArgs3.Add("@query", "3");
+                            dbArgs3.Add("@regno", csvregions[j].RegionCode);
+                            await SqlService.RegistrationInsert(dbArgs3, _username);
+                        }
+
+
+                        //INSERTING CANDIDATES
+                        displaydetail = "INSERTING CANDIDATE PATRICULAR DATA.....";
+                        var dbArgs4 = new Dictionary<string, string>();
+                        dbArgs4.Add("@query", "4");
+                        dbArgs4.Add("@regno", csvregions[j].RegionCode);
+                        completestatus = await SqlService.RegistrationInsert(dbArgs4, _username);
+
+                        if (completestatus)
+                        {
+                            TotalCandidate += TotalCandidateRegion;
+                            comstatus = "Completed";
+                        }
+                        else
+                        {
+                            TotalCandidateRegion = 0;
+                            comstatus = "Not Completed";
+                        }
+
+                        //INSERTING SIFA
+                        var dbArgs5 = new Dictionary<string, string>();
+                        dbArgs5.Add("@query", "14");
+                        dbArgs5.Add("@regno", csvregions[j].RegionCode);
+                        await SqlService.RegistrationInsert(dbArgs5, _username);
+
+                        // //UPDATE SIFA TABLE FOR CANDIDATE PARTICULAR ID
+                        // var dbArgs6 = new Dictionary<string, string>();
+                        // dbArgs6.Add("@query", "15");
+                        // dbArgs6.Add("@regno", csvregions[j].RegionCode);
+                        // await SqlService.RegistrationInsert(dbArgs6, _username);
+
+                        //INSERT RESULT SUBJECT
+                        var dbArgs7 = new Dictionary<string, string>();
+                        dbArgs7.Add("@query", "16");
+                        dbArgs7.Add("@regno", csvregions[j].RegionCode);
+                        await SqlService.RegistrationInsert(dbArgs7, _username);
+
+                        //INSERT RESULT PAPER
+                        var dbArgs8 = new Dictionary<string, string>();
+                        dbArgs8.Add("@query", "17");
+                        dbArgs8.Add("@regno", csvregions[j].RegionCode);
+                        await SqlService.RegistrationInsert(dbArgs8, _username);
+
+                        //INSERT RESULT SUBJECT CA
+                        if (_classname.ToLower() == "form vi")
+                        {
+                            caQueryId = 18; //ACSEE
+                        }
+                        else
+                        {
+                            caQueryId = 19; //CSEE
+                        }
+                        var dbArgs9 = new Dictionary<string, string>();
+                        dbArgs9.Add("@query", caQueryId.ToString());
+                        dbArgs9.Add("@regno", csvregions[j].RegionCode);
+                        await SqlService.RegistrationInsert(dbArgs9, _username);
+
+                        Value += 1;
+                        _regpercent = Value * 100 / _maxvalue;
+
+                        _maxvalueregion = regionscount;
+                        Valueregion = j + 1;
+                        _regpercentregion = Valueregion * 100 / regionscount;
+                        regiondisplay = csvregions[j].RegionName;
+                        rows.Add(regiondisplay + "," + TotalCandidateRegion.ToString() + "," + comstatus);
+                        var dli = new DataListModel(Guid.NewGuid(), regiondisplay, TotalCandidateRegion.ToString(), comstatus);
+                        datalists.Add(dli);
+                        dlist = datalists.AsQueryable();
+                        StateHasChanged();
+
+                    }
+                    // HACK : This function for insert Transfer Log to Sql
+                    await TranferLogInsert(transferOption, id, TotalCandidate, _username);
+                    isButtonDisable = false;
+                    StateHasChanged();
+                }
+                else
+                {
+                    isButtonDisable = false;
+                    StateHasChanged();
+                    ShowRegistration();
+                }
+            }
+            // else if (transferOption == "222")
+            // {
+            //     await UpdateSubjects();
+            // }
+            else // TODO  UPDATE CSV.......
+            {
+                isButtonDisable = false;
+                StateHasChanged();
+                await UpdateAsnyc();
+            }
+
+        }
+
+    }
+    void ShowRegistration()
+    {
+        snackBar.ShowCommunicationToast(new ToastParameters<CommunicationToastContent>()
+            {
+                Intent = ToastIntent.Success,
+                Title = "Insert Data",
+                Timeout = 4000,
+                PrimaryAction = "Open",
+                OnPrimaryAction = EventCallback.Factory.Create<ToastResult>(this, Desti),
+                Content = new CommunicationToastContent()
+                {
+                    Subtitle = " Please",
+                    Details = " Insert Data into Registration Database before transfer.",
+                },
+            });
+    }
+    public void Desti()
+    {
+        NavManager.NavigateTo("/registration");
+    }
+    private async ValueTask TranferLogInsert(string topt, int cid, int trecord, string uname)
+    {
+        TransferLogModel mytmodle = new TransferLogModel
+            {
+                TransferOption = topt,
+                ClassId = cid,
+                TotalRecord = trecord,
+                UserName = uname,
+                TransferDate = DateTime.Now
+            };
+
+        await SqlService.AddTransferLog(mytmodle);
+    }
+
+    private DataTable ConvertToDataTable<T>(List<T> list)
+    {
+        Type entityType = typeof(T);
+        DataTable table = new DataTable();
+        //Get all the properties
+        PropertyDescriptorCollection properties = TypeDescriptor.GetProperties(entityType);
+
+        foreach (PropertyDescriptor prop in properties)
+        {
+            //Setting column names as Property names
+            table.Columns.Add(prop.Name, Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
+        }
+
+        foreach (T item in list)
+        {
+            DataRow row = table.NewRow();
+
+            foreach (PropertyDescriptor prop in properties)
+            {
+                //inserting property values to datatable rows
+                row[prop.Name] = prop.GetValue(item) ?? DBNull.Value;
+            }
+
+            table.Rows.Add(row);
+        }
+        return table;
+    }
+
+    private async ValueTask<string> GetTrasferOptionDB(string toption, int ccid)
+    {
+        string vv = "";
+        try
+        {
+            transferOptionDB = await SqlService.GetTransferLog(toption, ccid);
+
+            if (transferOptionDB.Count > 0)
+            {
+                var query2 = from element in transferOptionDB
+                             where element.ClassId > 0
+                             select element.TransferOption;
+
+                vv = query2.FirstOrDefault().ToString();
+            }
+        }
+        catch (Exception ee)
+        {
+            snackBar.ShowError(ee.Message, 4000);
+            return vv = "-1";
+        }
+
+        return vv;
+    }
+    private async ValueTask GetConnectionId(string conntype, string uname)
+    {
+        var conModelList = await ConnectionService.GetConnectionByNameUsername(conntype, uname);
+
+        var query2 = from element in conModelList
+                     where element.Name == conntype
+                     select element.Id;
+
+        _connId = query2.FirstOrDefault();
+    }
+
+    private bool OpenConnSql(string conn)
+    {
+        SqlConnection connection = new SqlConnection(conn);
+        try
+        {
+            connection.Open();
+            return true;
+
+        }
+        catch (SqlException ex)
+        {
+            snackBar.ShowError(ex.Message, 4000);
+            return false;
+        }
+    }
+    private async Task UpdateAsnyc()
+    {
+
+        // To Check If already first insert was conducted
+        // TODO Uncommnet when deployment
+        //if (topt == "1")
+        //{
+        //	snackBar.Add("You can not do First Insert", Severity.Success, config => { config.VisibleStateDuration = 2000; });
+        //	return;
+
+        //}
+
+        //Delete CSV DataTable
+        var dbArgs = new Dictionary<string, string>();
+        dbArgs.Add("@query", "10");
+        var isSucess = await SqlService.RegistrationInsert(dbArgs, user2.UserName);
+
+        if (!isSucess)
+        {
+            snackBar.ShowInfo("Missing Storeprocedure,Check your source database", 3000);
+            return;
+        }
+        int _inUsajili = 0;
+        caQueryId = 0;
+        schoolsCsv = await CsvService.GetAllSchoolDesti(_inUsajili);
+
+        TotalCandidate = 0;
+        TotalData = 0;
+        int TotalCandidateRegion;
+
+        if (schoolsCsv.Count != 0)
+        {
+            int schoolcount = schoolsCsv.Count();
+            bool completestatus = false;
+            _maxvalue = schoolcount;
+            Value = 0;
+            // Insert per Region
+            for (int j = 0; j < schoolcount; j++)
+            {
+
+                //Transfer Details of CSV Data
+
+                csvdata = await CsvService.GetCsvBySchool(id, schoolsCsv[j].SchoolCode);
+
+                int csvDataRowCount = csvdata.Count;
+
+                if (csvDataRowCount != 0)
+                {
+
+                    TotalData += 1;
+                    DataTable dt2school = new DataTable();
+                    DataTable dt2sifa = new DataTable();
+                    DataTable dt2subject = new DataTable();
+                    DataTable dt2subjectCA = new DataTable();
+
+                    TotalCandidateRegion = 0;
+
+                    string comstatus = string.Empty;
+                    regiondisplay = schoolsCsv[j].SchoolCode;
+
+                    StateHasChanged();
+
+
+                    DataTable dt2 = new DataTable();
+                    var listcsv = csvdata.AsEnumerable().Select(x => new
+                    {
+                        x.RegionCode,
+                        x.RegionName,
+                        x.DistrictCode,
+                        x.DistrictName,
+                        x.SchoolCode,
+                        x.CandidateNumber,
+                        x.Name1,
+                        x.Name2,
+                        x.Name3,
+                        x.Sex,
+                        x.BirthDate,
+                        x.Address1,
+                        x.Address2,
+                        x.Address3,
+                        x.PhoneNumber,
+                        x.Vision,
+                        x.PremNumber,
+                        x.ClassId,
+                        x.ReferenceNumber
+                    });
+
+                    // Convert List to Data Table
+                    dt2 = ConvertToDataTable(listcsv.ToList());
+
+                    // Function for Insert CSV from sqlite to sql
+
+                    await SqlService.BulkInsert(dt2, user2.UserName);
+
+
+
+
+
+
+                    #region	Transfer Details of CSV School
+
+                    csvdataschool = await CsvService.GetCsvSchoolBySchoolDestination(id, schoolsCsv[j].SchoolCode);
+
+                    int csvDataRowCountShule = csvdataschool.Count;
+                    if (csvDataRowCountShule != 0)
+                    {
+
+
+                        dt2school.Clear();
+
+                        var listcsv2 = csvdataschool.AsEnumerable().Take(1).Select(x => new
+                        {
+                            x.RegionCode,
+                            x.DistrictCode,
+                            x.SchoolCode,
+                            x.SchoolName,
+                            x.IsEnglishMedium,
+                            x.SchoolOwner,
+                            x.DistanceFromDistrict,
+                            x.NambaWizara
+
+                        });
+
+                        // Convert List to Data Table
+                        dt2school = ConvertToDataTable(listcsv2.ToList());
+
+                        // Function for Insert CSV from sqlite to sql
+
+                        await SqlService.BulkInsertSchool(dt2school, _username);
+
+
+
+                    }
+                    #endregion
+
+                    #region	Transfer Details of CSV Sifa
+
+                    csvdatasifa = await CsvService.GetCsvSifaBySchoolDestination(id, schoolsCsv[j].SchoolCode);
+
+                    int sifacsvDataRowCount = csvdatasifa.Count;
+                    if (sifacsvDataRowCount != 0)
+                    {
+
+                      
+                            dt2sifa.Clear();
+                            var listcsvsifa = csvdatasifa.AsEnumerable().Select(x => new
+                            {
+                                x.RegionCode,
+                                x.SchoolCode,
+                                x.CandidateNumber,
+                                x.SifaNumber,
+                                x.SifaType,
+                                x.SifaYear,
+                                x.ClassId
+                            });
+
+                            // Convert List to Data Table
+                        dt2sifa = ConvertToDataTable(listcsvsifa.ToList());
+
+                            // Function for Insert CSV from sqlite to sql
+
+                            await SqlService.BulkInsertSifa(dt2sifa, _username);
+
+                        
+                        
+                    }
+                    #endregion
+
+                    #region	Transfer Details of CSV Subject
+
+                    csvdatasubject = await CsvService.GetCsvSubjectBySchoolDestination(id, schoolsCsv[j].SchoolCode);
+
+                    csvDataRowCount = csvdatasubject.Count;
+                    if (csvDataRowCount != 0)
+                    {
+                       
+                       
+                            dt2subject.Clear();
+                            var listcsvsubject = csvdatasubject.AsEnumerable().Select(x => new
+                            {
+                                x.SubjectCode,
+                                x.RegionCode,
+                                x.SchoolCode,
+                                x.CandidateNumber,
+                                x.ClassId,
+                                x.Combi
+                            });
+
+                            // Convert List to Data Table
+                            dt2subject = ConvertToDataTable(listcsvsubject.ToList());
+
+                            // Function for Insert CSV from sqlite to sql
+
+                            await SqlService.BulkInsertSubject(dt2subject, _username);
+
+                    }
+                    #endregion
+
+                    #region	Transfer Details of CSV Subject CA
+
+                    csvdatasubjectCA = await CsvService.GetCsvSubjectBySchoolDestinationCA(id, schoolsCsv[j].SchoolCode);
+
+                    csvDataRowCount = csvdatasubjectCA.Count;
+                    if (csvDataRowCount != 0)
+                    {
+                       
+                            dt2subjectCA.Clear();
+                            var listcsvCA = csvdatasubjectCA.Select(x => new
+                            {
+                                x.SubjectCode,
+                                x.RegionCode,
+                                x.SchoolCode,
+                                x.CandidateNumber,
+                                x.Y1T1,
+                                x.Y1T2,
+                                x.Y2T1,
+                                x.Project,
+                                x.ClassId
+                            });
+
+                            // Convert List to Data Table
+                            dt2subjectCA = ConvertToDataTable(listcsvCA.ToList());
+
+                            // Function for Insert CSV from sqlite to sql
+
+                            await SqlService.BulkInsertSubjectCA(dt2subjectCA, _username);
+
+                  
+                    }
+                    #endregion
+
+                    //DELETE CANDIDATE AND ALL ASSOCIATE LIKE SUBJECT AND PRMENO TABLES FOR FTNA
+                    var dbArgs1 = new Dictionary<string, string>();
+                    dbArgs1.Add("@query", "12");
+                    dbArgs1.Add("@schoolno", schoolsCsv[j].SchoolCode);
+                    await SqlService.RegistrationInsert(dbArgs1, user2.UserName);
+
+                    if (_classname.ToLower() == "nne")
+                    {
+                        //INSERTING REGIONS
+                        var dbArgs11 = new Dictionary<string, string>();
+                        dbArgs11.Add("@query", "1");
+                        dbArgs11.Add("@schoolno", schoolsCsv[j].SchoolCode);
+                        await SqlService.RegistrationInsert(dbArgs11, _username);
+
+                        //INSERTING DISTRICT
+                        var dbArgs2 = new Dictionary<string, string>();
+                        dbArgs2.Add("@query", "2");
+                        dbArgs2.Add("@schoolno", schoolsCsv[j].SchoolCode);
+                        await SqlService.RegistrationInsert(dbArgs2, _username);
+                    }
+                    //INSERTING SCHOOL IF NEW
+                    var dbArgs3 = new Dictionary<string, string>();
+                    dbArgs3.Add("@query", "3");
+                    dbArgs3.Add("@schoolno", schoolsCsv[j].SchoolCode);
+                    await SqlService.RegistrationInsert(dbArgs3, user2.UserName);
+
+                    //INSERTING CANDIDATES
+
+                    var dbArgs4 = new Dictionary<string, string>();
+                    dbArgs4.Add("@query", "4");
+                    dbArgs4.Add("@schoolno", schoolsCsv[j].SchoolCode);
+                    completestatus = await SqlService.RegistrationInsert(dbArgs4, user2.UserName);
+                    if (completestatus)
+                    {
+                        TotalCandidateRegion = csvDataRowCount;
+                        TotalCandidate += TotalCandidateRegion;
+                        comstatus = "Completed";
+
+                    }
+                    else
+                    {
+                        TotalCandidateRegion = 0;
+                        comstatus = "Not Completed";
+                    }
+
+                    //INSERTING SIFA
+                    var dbArgs5 = new Dictionary<string, string>();
+                    dbArgs5.Add("@query", "14");
+                    dbArgs5.Add("@schoolno", schoolsCsv[j].SchoolCode);
+                    await SqlService.RegistrationInsert(dbArgs5, _username);
+
+                    //INSERT RESULT SUBJECT by school
+                    var dbArgs7 = new Dictionary<string, string>();
+                    dbArgs7.Add("@query", "16");
+                    dbArgs7.Add("@schoolno", schoolsCsv[j].SchoolCode);
+                    await SqlService.RegistrationInsert(dbArgs7, _username);
+
+                    //INSERT RESULT PAPER THIS WILL NOT WORK FOR SFTNA AND PSLE
+                    var dbArgs8 = new Dictionary<string, string>();
+                    dbArgs8.Add("@query", "17");
+                    dbArgs8.Add("@schoolno", schoolsCsv[j].SchoolCode);
+                    await SqlService.RegistrationInsert(dbArgs8, _username);
+
+                    //INSERT RESULT SUBJECT CA
+                    if (_classname.ToLower() == "form vi")
+                    {
+                        caQueryId = 18; //ACSEE
+                    }
+                    else
+                    {
+                        caQueryId = 19; //CSEE
+                    }
+                    var dbArgs9 = new Dictionary<string, string>();
+                    dbArgs9.Add("@query", caQueryId.ToString());
+                    dbArgs9.Add("@schoolno", schoolsCsv[j].SchoolCode);
+                    await SqlService.RegistrationInsert(dbArgs9, _username);
+
+
+                    Value += 1;
+                    _regpercent = Value * 100 / _maxvalue;
+
+                    regiondisplay = schoolsCsv[j].SchoolCode;
+                    rows.Add(regiondisplay + "," + TotalCandidateRegion.ToString() + "," + comstatus);
+                    var dli = new DataListModel(Guid.NewGuid(), regiondisplay, TotalCandidateRegion.ToString(), comstatus);
+                    datalists.Add(dli);
+                    dlist = datalists.AsQueryable();
+                }
+                _maxvalueregion = TotalData;
+                Valueregion = j + 1;
+                _regpercentregion = Valueregion * 100 / schoolcount;
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            snackBar.ShowInfo("Please, Get Data first before transfer", 4000);
+        }
+
+    }
+    // private async Task UpdateSubjects()
+    // {
+    //     {
+
+    //         //Delete CSV DataTable
+    //         //Before Insert delete CSV
+    //         var dbArgs = new Dictionary<string, string>();
+    //         dbArgs.Add("@query", "10");
+    //         var isSucess = await SqlService.RegistrationInsert(dbArgs, user2.UserName);
+
+    //         if (!isSucess)
+    //         {
+    //             snackBar.ShowError("Missing Storeprocedure Transfer_InsertTableData or you dont have permission to execute on that procedure or missing tables start with name Transfer", 4000);
+    //             return;
+    //         }
+    //         int _inUsajili = 0;
+
+    //         csvregions = await CsvService.GetRegionsFromCsvDesti(_inUsajili);
+
+    //         if (csvregions.Count() != 0)
+    //         {
+    //             int regionscount = csvregions.Count();
+    //             int TotalCandidateRegion = 0;
+    //             bool completestatus = false;
+    //             // Insert per Region
+    //             for (int j = 0; j < regionscount; j++)
+    //             {
+    //                 int csvDataRowCount;
+    //                 int rowcount2;
+    //                 double stps2;
+    //                 int Steps2;
+    //                 int skp2;
+    //                 string comstatus;
+    //                 DataTable dt2 = new DataTable();
+    //                 DataTable dt2school = new DataTable();
+    //                 DataTable dt2sifa = new DataTable();
+    //                 DataTable dt2subject = new DataTable();
+    //                 TotalCandidateRegion = 0;
+    //                 #region	Transfer Details of CSV Data
+
+    //                 csvdata = await CsvService.GetCsvByRegionDestination(id, csvregions[j].RegionCode, _inUsajili);
+
+    //                 csvDataRowCount = csvdata.Count;
+    //                 if (csvDataRowCount != 0)
+    //                 {
+    //                     TotalCandidateRegion = csvDataRowCount;
+    //                     rowcount2 = csvDataRowCount;
+    //                     stps2 = csvDataRowCount / 10000.00000;
+    //                     Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+    //                     skp2 = 0;
+
+    //                     completestatus = false;
+    //                     comstatus = string.Empty;
+    //                     regiondisplay = string.Format("Particular of Region {0}", csvregions[j].RegionName);
+
+    //                     StateHasChanged();
+    //                     for (int i = 1; i <= Steps2; i++)
+    //                     {
+    //                         dt2.Clear();
+    //                         var listcsv = csvdata.AsEnumerable().Skip(skp2).Take(10000).Select(x => new
+    //                         {
+    //                             x.RegionCode,
+    //                             x.RegionName,
+    //                             x.DistrictCode,
+    //                             x.DistrictName,
+    //                             x.SchoolCode,
+    //                             x.CandidateNumber,
+    //                             x.Name1,
+    //                             x.Name2,
+    //                             x.Name3,
+    //                             x.Sex,
+    //                             x.BirthDate,
+    //                             x.Address1,
+    //                             x.Address2,
+    //                             x.Address3,
+    //                             x.PhoneNumber,
+    //                             x.Vision,
+    //                             x.PremNumber,
+    //                             x.ClassId
+    //                         });
+
+    //                         // Convert List to Data Table
+    //                         dt2 = ConvertToDataTable(listcsv.ToList());
+
+    //                         // Function for Insert CSV from sqlite to sql
+
+    //                         await SqlService.BulkInsert(dt2, user2.UserName);
+
+    //                         //TODO : Start to code about registration
+
+    //                         //	displaydetail = listcsv.Count().ToString();
+    //                         _maxvalue = Steps2;
+    //                         Value = i;
+    //                         _regpercent = Value * 100 / Steps2;
+    //                         if (_regpercent == 100)
+    //                         {
+    //                             Value -= 1;
+    //                             _regpercent = Value * 100 / Steps2;
+    //                         }
+
+    //                         skp2 = skp2 + 10000;
+    //                         StateHasChanged();
+    //                     }
+    //                 }
+    //                 #endregion
+
+    //                 #region	Transfer Details of CSV School
+
+    //                 csvdataschool = await CsvService.GetCsvSchoolByRegionDestination(id, csvregions[j].RegionCode);
+
+    //                 csvDataRowCount = csvdataschool.Count;
+    //                 if (csvDataRowCount != 0)
+    //                 {
+
+    //                     rowcount2 = csvDataRowCount;
+    //                     stps2 = csvDataRowCount / 10000.00000;
+    //                     Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+    //                     skp2 = 0;
+
+    //                     completestatus = false;
+    //                     comstatus = string.Empty;
+    //                     regiondisplay = string.Format("Schools of Region {0}", csvregions[j].RegionName);
+
+    //                     StateHasChanged();
+    //                     for (int i = 1; i <= Steps2; i++)
+    //                     {
+    //                         dt2school.Clear();
+
+    //                         var listcsv = csvdataschool.AsEnumerable().Skip(skp2).Take(10000).Select(x => new
+    //                         {
+    //                             x.RegionCode,
+    //                             x.DistrictCode,
+    //                             x.SchoolCode,
+    //                             x.SchoolName,
+    //                             x.IsEnglishMedium,
+    //                             x.SchoolOwner,
+    //                             x.DistanceFromDistrict,
+    //                             x.NambaWizara
+
+    //                         });
+
+    //                         // Convert List to Data Table
+    //                         dt2school = ConvertToDataTable(listcsv.ToList());
+
+    //                         // Function for Insert CSV from sqlite to sql
+
+    //                         await SqlService.BulkInsertSchool(dt2school, _username);
+
+    //                         //TODO : Start to code about registration
+
+    //                         //	displaydetail = listcsv.Count().ToString();
+    //                         _maxvalue = Steps2;
+    //                         Value = i;
+    //                         _regpercent = Value * 100 / Steps2;
+    //                         if (_regpercent == 100)
+    //                         {
+    //                             Value -= 1;
+    //                             _regpercent = Value * 100 / Steps2;
+    //                         }
+
+    //                         skp2 = skp2 + 10000;
+    //                         StateHasChanged();
+    //                     }
+    //                 }
+    //                 #endregion
+
+    //                 #region	Transfer Details of CSV Sifa
+
+    //                 csvdatasifa = await CsvService.GetCsvSifaByRegionDestination(id, csvregions[j].RegionCode);
+
+    //                 csvDataRowCount = csvdatasifa.Count;
+    //                 if (csvDataRowCount != 0)
+    //                 {
+
+    //                     rowcount2 = csvDataRowCount;
+    //                     stps2 = csvDataRowCount / 10000.00000;
+    //                     Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+    //                     skp2 = 0;
+
+    //                     completestatus = false;
+    //                     comstatus = string.Empty;
+    //                     regiondisplay = string.Format("Sifa of Region {0}", csvregions[j].RegionName);
+
+    //                     StateHasChanged();
+    //                     for (int i = 1; i <= Steps2; i++)
+    //                     {
+    //                         dt2sifa.Clear();
+    //                         var listcsv = csvdatasifa.AsEnumerable().Skip(skp2).Take(10000).Select(x => new
+    //                         {
+    //                             x.RegionCode,
+    //                             x.SchoolCode,
+    //                             x.CandidateNumber,
+    //                             x.SifaNumber,
+    //                             x.SifaType,
+    //                             x.SifaYear,
+    //                             x.ClassId
+    //                         });
+
+    //                         // Convert List to Data Table
+    //                         dt2sifa = ConvertToDataTable(listcsv.ToList());
+
+    //                         // Function for Insert CSV from sqlite to sql
+
+    //                         await SqlService.BulkInsertSifa(dt2sifa, _username);
+
+    //                         //TODO : Start to code about registration
+
+    //                         //	displaydetail = listcsv.Count().ToString();
+    //                         _maxvalue = Steps2;
+    //                         Value = i;
+    //                         _regpercent = Value * 100 / Steps2;
+    //                         if (_regpercent == 100)
+    //                         {
+    //                             Value -= 1;
+    //                             _regpercent = Value * 100 / Steps2;
+    //                         }
+
+    //                         skp2 = skp2 + 10000;
+    //                         StateHasChanged();
+    //                     }
+    //                 }
+    //                 #endregion
+
+    //                 #region	Transfer Details of CSV Subject
+
+    //                 csvdatasubject = await CsvService.GetCsvSubjectByRegionDestination(id, csvregions[j].RegionCode);
+
+    //                 csvDataRowCount = csvdatasubject.Count;
+    //                 if (csvDataRowCount != 0)
+    //                 {
+    //                     rowcount2 = csvDataRowCount;
+    //                     stps2 = csvDataRowCount / 10000.00000;
+    //                     Steps2 = Convert.ToInt32(Math.Ceiling(Convert.ToDecimal(stps2)));
+    //                     skp2 = 0;
+
+    //                     completestatus = false;
+    //                     comstatus = string.Empty;
+    //                     regiondisplay = string.Format("Subjects of Region {0}", csvregions[j].RegionName);
+
+    //                     StateHasChanged();
+    //                     for (int i = 1; i <= Steps2; i++)
+    //                     {
+    //                         dt2subject.Clear();
+    //                         var listcsv = csvdatasubject.AsEnumerable().Skip(skp2).Take(10000).Select(x => new
+    //                         {
+    //                             x.SubjectCode,
+    //                             x.RegionCode,
+    //                             x.SchoolCode,
+    //                             x.CandidateNumber,
+    //                             x.ClassId,
+    //                             x.Combi
+    //                         });
+
+    //                         // Convert List to Data Table
+    //                         dt2subject = ConvertToDataTable(listcsv.ToList());
+
+    //                         // Function for Insert CSV from sqlite to sql
+
+    //                         await SqlService.BulkInsertSubject(dt2subject, _username);
+
+    //                         //TODO : Start to code about registration
+
+    //                         //	displaydetail = listcsv.Count().ToString();
+    //                         _maxvalue = Steps2;
+    //                         Value = i;
+    //                         _regpercent = Value * 100 / Steps2;
+    //                         if (_regpercent == 100)
+    //                         {
+    //                             Value -= 1;
+    //                             _regpercent = Value * 100 / Steps2;
+    //                         }
+
+    //                         skp2 = skp2 + 10000;
+    //                         StateHasChanged();
+    //                     }
+    //                 }
+    //                 #endregion
+
+    //                 //INSERTING REGIONS
+    //                 // var dbArgs1 = new Dictionary<string, string>();
+    //                 // dbArgs1.Add("@query", "1");
+    //                 // dbArgs1.Add("@regno", csvregions[j].RegionCode);
+    //                 // await SqlService.RegistrationInsert(dbArgs1, _username);
+
+    //                 //INSERTING DISTRICT
+    //                 // var dbArgs2 = new Dictionary<string, string>();
+    //                 // dbArgs2.Add("@query", "2");
+    //                 // dbArgs2.Add("@regno", csvregions[j].RegionCode);
+    //                 // await SqlService.RegistrationInsert(dbArgs2, _username);
+
+    //                 //INSERTING SCHOOL
+    //                 // var dbArgs3 = new Dictionary<string, string>();
+    //                 // dbArgs3.Add("@query", "3");
+    //                 // dbArgs3.Add("@regno", csvregions[j].RegionCode);
+    //                 // await SqlService.RegistrationInsert(dbArgs3, _username);
+
+    //                 //INSERTING CANDIDATES
+    //                 //displaydetail = "INSERTING CANDIDATE PATRICULAR DATA.....";
+    //                 // var dbArgs4 = new Dictionary<string, string>();
+    //                 // dbArgs4.Add("@query", "4");
+    //                 // dbArgs4.Add("@regno", csvregions[j].RegionCode);
+    //                 // completestatus = await SqlService.RegistrationInsert(dbArgs4, _username);
+
+    //                 // if (completestatus)
+    //                 // {
+    //                 //     TotalCandidate += TotalCandidateRegion;
+    //                 //     comstatus = "Completed";
+    //                 // }
+    //                 // else
+    //                 // {
+    //                 //     TotalCandidateRegion = 0;
+    //                 //     comstatus = "Not Completed";
+    //                 // }
+
+    //                 //INSERTING SIFA
+    //                 var dbArgs5 = new Dictionary<string, string>();
+    //                 dbArgs5.Add("@query", "14");
+    //                 dbArgs5.Add("@regno", csvregions[j].RegionCode);
+    //                 await SqlService.RegistrationInsert(dbArgs5, _username);
+
+    //                 // //UPDATE SIFA TABLE FOR CANDIDATE PARTICULAR ID not working for now bse updates of id included on insert
+    //                 // var dbArgs6 = new Dictionary<string, string>();
+    //                 // dbArgs6.Add("@query", "15");
+    //                 // dbArgs6.Add("@regno", csvregions[j].RegionCode);
+    //                 // await SqlService.RegistrationInsert(dbArgs6, _username);
+
+    //                 //INSERT RESULT SUBJECT
+    //                 var dbArgs7 = new Dictionary<string, string>();
+    //                 dbArgs7.Add("@query", "16");
+    //                 dbArgs7.Add("@regno", csvregions[j].RegionCode);
+    //                 await SqlService.RegistrationInsert(dbArgs7, _username);
+
+    //                 //INSERT RESULT PAPER
+    //                 var dbArgs8 = new Dictionary<string, string>();
+    //                 dbArgs8.Add("@query", "17");
+    //                 dbArgs8.Add("@regno", csvregions[j].RegionCode);
+    //                 await SqlService.RegistrationInsert(dbArgs8, _username);
+    //                 comstatus = "Completed";
+    //                 Value += 1;
+    //                 _regpercent = Value * 100 / _maxvalue;
+
+    //                 _maxvalueregion = regionscount;
+    //                 Valueregion = j + 1;
+    //                 _regpercentregion = Valueregion * 100 / regionscount;
+    //                 regiondisplay = csvregions[j].RegionName;
+    //                 rows.Add(regiondisplay + "," + TotalCandidateRegion.ToString() + "," + comstatus);
+    //                 var dli = new DataListModel(Guid.NewGuid(), regiondisplay, TotalCandidateRegion.ToString(), comstatus);
+    //                 datalists.Add(dli);
+    //                 dlist = datalists.AsQueryable();
+    //                 StateHasChanged();
+
+    //             }
+    //             // HACK : This function for insert Transfer Log to Sql
+    //             await TranferLogInsert(transferOption, id, TotalCandidate, _username);
+    //             isButtonDisable = false;
+    //             StateHasChanged();
+    //         }
+    //         else
+    //         {
+    //             isButtonDisable = false;
+    //             StateHasChanged();
+    //             ShowRegistration();
+    //         }
+    //     }
+    }
+}
+

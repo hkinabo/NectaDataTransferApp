@@ -1,0 +1,185 @@
+﻿@using static NectaDataTranferApp.Components.Pages.Ores.OresSource
+
+@implements IDialogContentComponent
+
+@inject ICsvService CsvService
+@rendermode @(new InteractiveServerRenderMode(prerender:true))
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<FluentToastProvider />
+<FluentDialog>
+    <FluentDialogBody>
+
+        <FluentGrid>
+
+            <FluentStack Orientation="Orientation.Vertical" VerticalGap="15">
+                <FluentGridItem xs="12">
+
+                    <FluentGridItem xs="12" sm="6" md="12">
+                        @if (schools != null)
+                        {
+                            <FluentStack>
+                                <FluentTextArea Autofocus="true" Id="txtAreaNumber" @bind-Value="_schoolCode" Label="School Number" Required="true" style="width: 50%;"></FluentTextArea>
+                                <FluentTooltip Anchor="txtAreaNumber" HideTooltipOnCursorLeave="true" Position=TooltipPosition.Bottom Delay=200>eg PS0101001 or separate by comma S0101,S0147..</FluentTooltip>
+                                <FluentSpacer />
+                                <FluentButton Class="save" Id="btnAdd" Appearance="@Appearance.Accent" @onclick="AddSchool">ADD</FluentButton>
+                            </FluentStack>
+                        }
+                    </FluentGridItem>
+                    <FluentGridItem Class="mt-6" xs="12" sm="6" md="12">
+
+                        <div style="height: 200px; margin-top:15px; overflow:auto;">
+                            <FluentDataGrid Loading="@isVisible" Items="@plist" GridTemplateColumns="1.3fr 3fr 1fr" Style="height=100%;width:100%;" ResizableColumns=true>
+                                <PropertyColumn Title="Number" Property="@(p=>p.SchoolCode)" Sortable="true" />
+                                <PropertyColumn Property="@(p=>p.SchoolName)" Sortable="true" />
+                                <TemplateColumn Title="Action" Align="@Align.End">
+                                    <FluentButton Id="btndelete" IconEnd="@(new Icons.Regular.Size20.Delete().WithColor(Color.Error))" @onclick="@(()=> DeleteSchoolRow(context))"></FluentButton>
+                                </TemplateColumn>
+                            </FluentDataGrid>
+                        </div>
+                    </FluentGridItem>
+                </FluentGridItem>
+            </FluentStack>
+        </FluentGrid>
+
+    </FluentDialogBody>
+
+    <FluentDialogFooter>
+        <FluentStack>
+            <FluentSpacer />
+            <FluentButton Class="save" Id="btnDeleteAll" Appearance="@Appearance.Outline" OnClick="DeleteAllList">Delete All</FluentButton>
+            <FluentButton Class="save" Id="btnCancel" Appearance="@Appearance.Outline" OnClick="Cancel">Cancel</FluentButton>
+            <FluentButton Class="save" Id="btnSubmit" Appearance="@Appearance.Accent" OnClick="Submit">Ok</FluentButton>
+        </FluentStack>
+    </FluentDialogFooter>
+</FluentDialog>
+@code {
+    [CascadingParameter] FluentDialog? MudDialog { get; set; }
+    //[Parameter] public string username { get; set; }
+    [Parameter]
+    public NameAndAge content { get; set; } = default!;
+    private List<SchoolModel> schools = new();
+    private List<SchoolModel> schoolsearch = new();
+    string[] headings = { "SchoolCode", "SchoolName", "Action" };
+    List<String> schoolrows = new List<String>();
+    private string _schoolCode = "";
+    private bool isVisible = false;
+    private IQueryable<SchoolModel> plist;
+
+    protected async override Task OnInitializedAsync()
+    {
+        try
+        {
+            await CsvService.DeleteAllSchool<SchoolModel>();
+        }
+        catch (Exception)
+        {
+
+        }
+    }
+
+    private async Task AddSchool()
+    {
+        isVisible = true;
+        List<string> shulelist = new();
+        string? _myuser = content.myUsername;
+        foreach (string subshule in _schoolCode.Split(','))
+        {
+            if (!string.IsNullOrEmpty(subshule) && subshule.Length >= 4)
+            {
+                shulelist.Add(subshule);
+            }
+        }
+
+        if (shulelist.Count() == 0)
+        {
+            snackBar.ShowInfo("There is no school entered!", 3000);
+            return;
+        }
+
+        foreach (var shule in shulelist)
+        {
+            if (_myuser != null)
+            {
+                var myschools = await CsvService.GetSchoolByCode(shule.Trim().ToUpper(), _myuser);
+
+                if (myschools.Count() != 0)
+                {
+                    foreach (var schoolmode in myschools)
+                    {
+                        var scModel = new SchoolModel
+                            {
+                                SchoolCode = schoolmode.SchoolCode,
+                                SchoolName = schoolmode.SchoolName
+                            };
+                        await CsvService.AddSchool(scModel);
+
+                    }
+                }
+            }
+        }
+
+        schools = await CsvService.GetAllSchool();
+        isVisible = false;
+        StateHasChanged();
+        if (schools.Count() == 0)
+        {
+            isVisible = false;
+            StateHasChanged();
+            snackBar.ShowInfo("No school found!", 3000);
+            return;
+        }
+        else
+        {
+            plist = schools.AsQueryable();
+        }
+    }
+
+    private void Submit()
+    {
+        MudDialog?.CloseAsync(content);
+
+    }
+    private async void Cancel()
+    {
+        try
+        {
+            await CsvService.DeleteAllSchool<SchoolModel>();
+        }
+        catch (Exception)
+        {
+
+        }
+        if (MudDialog != null)
+        {
+            await MudDialog.CancelAsync();
+
+        }
+    }
+    private async void DeleteAllList()
+    {
+        try
+        {
+            await CsvService.DeleteAllSchool<SchoolModel>();
+        }
+        catch (Exception)
+        {
+
+        }
+        schools = await CsvService.GetAllSchool();
+        plist = schools.AsQueryable();
+        this.StateHasChanged();
+
+    }
+    private async void DeleteSchoolRow(SchoolModel scModel)
+    {
+        var response = await CsvService.DeleteSchool(scModel);
+        if (response > 0)
+        {
+            schools = await CsvService.GetAllSchool();
+            plist = schools.AsQueryable();
+            this.StateHasChanged();
+        }
+
+    }
+}

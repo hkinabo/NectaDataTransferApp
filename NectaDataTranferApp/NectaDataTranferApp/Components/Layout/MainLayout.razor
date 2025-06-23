@@ -1,0 +1,36 @@
+﻿@inherits LayoutComponentBase
+@using NectaDataTranferApp.Components.ComponetServer
+<FluentLayout>
+    <FluentHeader>
+
+
+        <FluentLabel Color="Color.Fill" Typo="Typography.Header" Style="margin-left:20px">NectaDataTranferApp</FluentLabel>
+     
+        <FluentSpacer/>
+        <LoginMenu></LoginMenu>
+    </FluentHeader>
+    <FluentStack Class="main" Orientation="Orientation.Horizontal" Width="100%">
+        <NavMenu />
+        <FluentBodyContent  Class="body-content">
+            <div class="content">
+                @Body
+            </div>
+        </FluentBodyContent>
+    </FluentStack>
+    <FluentFooter>
+        <div class="link1">
+            <a href="https://www.necta.go.tz" target="_blank">© 2024 The National Examinations Council of Tanzania</a>
+        </div>
+       
+       @*  <div class="link2">
+            <a href="https://learn.microsoft.com/en-us/aspnet/core/blazor" target="_blank">About Blazor</a>
+        </div> *@
+    </FluentFooter>
+    
+</FluentLayout>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
