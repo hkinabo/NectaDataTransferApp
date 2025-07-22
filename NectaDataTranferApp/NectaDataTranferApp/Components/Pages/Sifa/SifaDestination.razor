@@ -178,13 +178,13 @@
                     </FluentGridItem>
                 }
                 <FluentGridItem Class="mt-2" xs="12" sm="6" md="12">
-                    <div style="height: 200px; width:550px; margin-top:15px; overflow-x:auto;">
-                        <FluentDataGrid Id="dgridAlllist" Items="@dlist" Style="height=100%; width:450px;" ResizableColumns="false">
+                    @* <div style="height: 200px; width:100%; margin-top:15px; overflow-x:auto;"> *@
+                    <FluentDataGrid Id="dgridAlllist" Items="@dlist" Style="height=100%; width:100%;" MultiLine="true" ResizableColumns="true">
                             <PropertyColumn Width="150px" Property="@(p=>p.Code)" Sortable="true" />
                             <PropertyColumn Width="140px" Property="@(p=>p.Records_Subj)" Sortable="true" />
-                            <PropertyColumn Width="400px" Property="@(p=>p.Status)" Sortable="false" />
+                            <PropertyColumn Width="500px" Property="@(p=>p.Status)" Sortable="false" />
                         </FluentDataGrid>
-                    </div>
+                  @*   </div> *@
                 </FluentGridItem>
             </FluentStack>
         </FluentStack>

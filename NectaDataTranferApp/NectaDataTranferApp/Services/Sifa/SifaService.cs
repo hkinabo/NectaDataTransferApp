@@ -86,7 +86,7 @@ namespace NectaDataTransfer.Services.Sifa
                 try
                 {
                     using MySqlConnection con = new(Setting.DecryptionMe(checkconn));
-                    string sql = string.Format("INSERT INTO tbl_{0}_particulars (tbl_exam_centres_Id,szCandidatesNumber,tbl_exam_types_Id,szPersonalIdNumber,szCandidatesType,szFirstName,szOtherNames,szSurName,szSex,dtDateOfBirth,intPoints,szDivision,intStatus,nrank) SELECT {3},'{1}',{2},'{4}','{5}','{6}','{7}','{8}','{9}','{10}',{11},'{12}',{13},{14} WHERE NOT EXISTS (SELECT 1 FROM tbl_{0}_particulars WHERE szCandidatesNumber='{1}' AND tbl_exam_types_Id={2})", eyear, candno, etype, CentreId, Premno, Ctype, Fname, Oname, Sname, Sex, Dbirth, Point, Division, Status, Nrank);
+                    string sql = string.Format("INSERT INTO tbl_{0}_particulars (tbl_exam_centres_Id,szCandidatesNumber,tbl_exam_types_Id,szPersonalIdNumber,szCandidatesType,szFirstName,szOtherNames,szSurName,szSex,dtDateOfBirth,intPoints,szDivision,intStatus,nrank) SELECT {3},'{1}',{2},'{4}','{5}','{6}','{7}','{8}','{9}','{10}',{11},'{12}',{13},{14} WHERE NOT EXISTS (SELECT 1 FROM tbl_{0}_particulars WHERE szCandidatesNumber='{1}' AND tbl_exam_types_Id={2})", eyear, candno, etype, CentreId, Premno, Ctype, Fname.Replace("'", "''"), Oname.Replace("'", "''"), Sname.Replace("'","''"), Sex, Dbirth, Point, Division, Status, Nrank);
 
                     MySqlCommand cmd = new(sql, con)
                     {
