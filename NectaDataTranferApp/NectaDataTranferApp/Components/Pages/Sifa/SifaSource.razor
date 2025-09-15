@@ -1204,6 +1204,7 @@ else
             await InsertOption(transferOption, "Names Insert", _username);
 
             var p = await OlevelService.DeleteAllSifaName<SifaNameModel>();
+            var p2 = await OlevelService.DeleteAllSifaName2<SifaNameModel2>();
 
 
             int TotalCandidateRegion = 0;
@@ -1545,6 +1546,8 @@ else
                     }).ToList();
 
                 await OlevelService.AddSifaNameAll(selectViewModelList2);
+
+                var p3 = await OlevelService.DeleteAllSifaName3(selectViewModelList2);
 
                 foreach (var item in selectViewModelList2)
                 {

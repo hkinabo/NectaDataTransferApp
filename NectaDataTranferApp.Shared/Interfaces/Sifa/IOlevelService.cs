@@ -63,5 +63,7 @@ namespace NectaDataTransfer.Shared.Interfaces.Sifa
         Task<List<SifaFeeBackupModel>> GetAllSifaFeeBackup(string _username);
         Task<List<ParticularModel>> GetParticularByCandnoTefis(string candnumber, string _username, string _eyear);
         Task<List<ResultModel>> GetResultByCandnoTefis(string candnumber, int etype, string _username, string _eyear);
+        Task<int> DeleteAllSifaName2<T>();
+        Task<int> DeleteAllSifaName3(List<SifaNameModel> list);
     }
 }

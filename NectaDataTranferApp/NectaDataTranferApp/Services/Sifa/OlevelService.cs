@@ -4,6 +4,7 @@ using NectaDataTransfer.Shared.Responses;
 using SQLite;
 using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Linq.Expressions;
 
 namespace NectaDataTransfer.Services.Sifa
@@ -35,6 +36,7 @@ namespace NectaDataTransfer.Services.Sifa
                 _ = await _connection.CreateTableAsync<TypeModel>().ConfigureAwait(true);
                 _ = await _connection.CreateTableAsync<SubjectModel>().ConfigureAwait(true);
                 _ = await _connection.CreateTableAsync<SifaNameModel>().ConfigureAwait(true);
+                _ = await _connection.CreateTableAsync<SifaNameModel2>().ConfigureAwait(true);
                 _ = await _connection.CreateTableAsync<SifaNameBackupModel>().ConfigureAwait(true);
                 _ = await _connection.CreateTableAsync<SifaFeeBackupModel>().ConfigureAwait(true);
 
@@ -427,6 +429,7 @@ namespace NectaDataTransfer.Services.Sifa
         public async Task<List<SifaNameModel>> GetAllSifaName(string _username)
         {
             List<SifaNameModel> lstParticular = new();
+            List<SifaNameModel2> lstParticular2 = new();
             string username = _username;
             string name = "sql";
             List<SifaConnectionModel> conModelList = await _connection.QueryAsync<SifaConnectionModel>($"Select * from {nameof(SifaConnectionModel)} where Name= '{name}' and Username = '{username}'").ConfigureAwait(true);
@@ -467,6 +470,35 @@ namespace NectaDataTransfer.Services.Sifa
                 }
                 con.Close();
 
+
+                using SqlConnection con2 = new(Setting.DecryptionMe(checkconn));
+                SqlCommand cmd2 = new($"SELECT  m.[mtihani_sifa] mtihani,m.mwaka_sifa mwaka,m.[cand_no_sifa] cand_no,m.[fname_new] fname,m.[mname_new] oname,m.[lname_new] sname,m.[sex_new] sex,m.[kuzaliwa_new] dbirth FROM [maombi_marekebisho_DPM] as m JOIN (select distinct mtihani,mwaka,cand_no, max(tarehe_ombi) dtare from maombi_marekebisho_DPM where [status]=2 and ina_sifa='ndio' group by mtihani,mwaka,cand_no ) as d on m.mwaka=d.mwaka and m.cand_no=d.cand_no and m.mtihani=d.mtihani and m.tarehe_ombi=d.dtare where m.[status] = 2 and ina_sifa='ndio';", con)
+                {
+                    CommandType = CommandType.Text
+                };
+                con2.Open();
+                SqlDataReader rdr2 = cmd2.ExecuteReader();
+                while (rdr2.Read())
+                {
+                    SifaNameModel2 db2 = new()
+                    {
+                        ExamName = rdr["mtihani"].ToString(),
+                        ExamYear = Convert.ToInt32(rdr["mwaka"]),
+                        ExamNumber = rdr["cand_no"].ToString(),
+                        Fname = rdr["fname"].ToString(),
+                        Oname = rdr["oname"].ToString(),
+                        Sname = rdr["sname"].ToString(),
+                        Sex = rdr["sex"].ToString().Trim(),
+                        Dbirth = rdr["dbirth"].ToString(),
+                        ExamType = GetType(rdr["mtihani"].ToString().Trim()),
+                        SifaTable = string.Format("tbl_{0}_particulars", rdr["mwaka"].ToString()),
+                        UserName = _username
+                    };
+
+                    lstParticular2.Add(db2);
+                }
+                con2.Close();
+
             }
 
             return lstParticular;
@@ -502,7 +534,7 @@ namespace NectaDataTransfer.Services.Sifa
                         ExamYear = Convert.ToInt32(rdr["mwaka"]),
                         ExamNumber = rdr["cand_no"].ToString(),
                         Fname = rdr["fname"].ToString(),
-                        ExamType = GetType(rdr["etype"].ToString()),
+                        ExamType = GetType(rdr["etype"].ToString().Trim()),
                         SifaTable = string.Format("tbl_{0}_particulars", rdr["mwaka"].ToString()),
                         EmisDB = string.Format("{1}{0}", rdr["mwaka"].ToString(), rdr["mtihani"].ToString()),
                         UserName = _username
@@ -1071,6 +1103,43 @@ namespace NectaDataTransfer.Services.Sifa
         public async Task<int> DeleteAllSifaName<T>()
         {
             return await _connection.DeleteAllAsync<SifaNameModel>().ConfigureAwait(true);
+
+        }
+
+        public async Task<int> DeleteAllSifaName3(List<SifaNameModel> list)
+        {
+            if (list == null || list.Count == 0)
+            {
+                // If no items to keep, delete everything
+                return 0;
+            }
+
+            // Get all rows in table
+            var allRows = await _connection.Table<SifaNameModel2>().ToListAsync();
+
+            // Filter rows NOT in the keep list
+            var toDelete = allRows
+                .Where(x => !list.Any(k => k.Sname == x.Sname && k.Fname == x.Fname))
+                .ToList();
+
+            int deletedCount = 0;
+            foreach (var item in toDelete)
+            {
+                deletedCount += await _connection.DeleteAsync(item);
+            }
+
+            return deletedCount;
+        }
+
+        public async Task<int> DeleteAllSifaName3<T>()
+        {
+
+            return await _connection.DeleteAllAsync<SifaNameModel>().ConfigureAwait(true);
+
+        }
+        public async Task<int> DeleteAllSifaName2<T>()
+        {
+            return await _connection.DeleteAllAsync<SifaNameModel2>().ConfigureAwait(true);
 
         }
         public async Task<int> DeleteAllSifaNameBackup<T>()
