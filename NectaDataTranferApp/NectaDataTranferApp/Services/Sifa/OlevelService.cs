@@ -1,4 +1,5 @@
-﻿using NectaDataTransfer.Shared.Interfaces.Sifa;
+﻿using Microsoft.FluentUI.AspNetCore.Components;
+using NectaDataTransfer.Shared.Interfaces.Sifa;
 using NectaDataTransfer.Shared.Models.Sifa;
 using NectaDataTransfer.Shared.Responses;
 using SQLite;
@@ -80,6 +81,10 @@ namespace NectaDataTransfer.Services.Sifa
         public async Task<List<SifaNameModel>> GetAllSqliteSifaNames(string _username)
         {
             return await _connection.Table<SifaNameModel>().Where(SifaNameModel => SifaNameModel.UserName == _username).ToListAsync().ConfigureAwait(false);
+        }
+        public async Task<List<SifaNameModel2>> GetAllSqliteSifaNames2(string _username)
+        {
+            return await _connection.Table<SifaNameModel2>().Where(SifaNameModel => SifaNameModel.UserName == _username).ToListAsync().ConfigureAwait(false);
         }
         public async Task<List<SifaNameBackupModel>> GetAllSifaNamesBackup(string _username)
         {
@@ -443,7 +448,7 @@ namespace NectaDataTransfer.Services.Sifa
             if (checkconn != null)
             {
                 using SqlConnection con = new(Setting.DecryptionMe(checkconn));
-                SqlCommand cmd = new($"SELECT  m.[mtihani],m.mwaka,m.[cand_no],m.[fname_new] fname,m.[mname_new] oname,m.[lname_new] sname,m.[sex_new] sex,m.[kuzaliwa_new] dbirth FROM [maombi_marekebisho_DPM] as m JOIN (select distinct mtihani,mwaka,cand_no, max(tarehe_ombi) dtare from maombi_marekebisho_DPM where [status]=2 group by mtihani,mwaka,cand_no ) as d on m.mwaka=d.mwaka and m.cand_no=d.cand_no and m.mtihani=d.mtihani and m.tarehe_ombi=d.dtare where m.[status] = 2;", con)
+                SqlCommand cmd = new($"SELECT m.[mtihani_sifa] mtihani2,m.mwaka_sifa mwaka2,m.[cand_no_sifa] cand_no2, m.[mtihani],m.mwaka,m.[cand_no],m.[fname_new] fname,m.[mname_new] oname,m.[lname_new] sname,m.[sex_new] sex,m.[kuzaliwa_new] dbirth FROM [maombi_marekebisho_DPM] as m JOIN (select distinct mtihani,mwaka,cand_no, max(tarehe_ombi) dtare from maombi_marekebisho_DPM where [status]=2 group by mtihani,mwaka,cand_no ) as d on m.mwaka=d.mwaka and m.cand_no=d.cand_no and m.mtihani=d.mtihani and m.tarehe_ombi=d.dtare where m.[status] = 2;", con)
                 {
                     CommandType = CommandType.Text
                 };
@@ -463,42 +468,48 @@ namespace NectaDataTransfer.Services.Sifa
                         Dbirth = rdr["dbirth"].ToString(),
                         ExamType = GetType(rdr["mtihani"].ToString()),
                         SifaTable = string.Format("tbl_{0}_particulars", rdr["mwaka"].ToString()),
-                        UserName = _username
+                        UserName = _username,
+                        ExamName2 = rdr["mtihani2"] == DBNull.Value ? string.Empty : rdr["mtihani2"].ToString(),
+                        ExamYear2 = rdr["mwaka2"] == DBNull.Value || string.IsNullOrWhiteSpace(rdr["mwaka2"].ToString())? 0: Convert.ToInt32(rdr["mwaka2"]),
+                        ExamNumber2 = rdr["cand_no2"] == DBNull.Value ? string.Empty : rdr["cand_no2"].ToString(),
+                        ExamType2 = rdr["mtihani2"] == DBNull.Value ? 0 :  GetType(rdr["mtihani2"].ToString()),
+                        SifaTable2 = rdr["mwaka2"] == DBNull.Value || string.IsNullOrWhiteSpace(rdr["mwaka2"].ToString())? string.Empty: $"tbl_{rdr["mwaka2"]}_particulars"
                     };
 
                     lstParticular.Add(db);
                 }
                 con.Close();
 
+               
 
-                using SqlConnection con2 = new(Setting.DecryptionMe(checkconn));
-                SqlCommand cmd2 = new($"SELECT  m.[mtihani_sifa] mtihani,m.mwaka_sifa mwaka,m.[cand_no_sifa] cand_no,m.[fname_new] fname,m.[mname_new] oname,m.[lname_new] sname,m.[sex_new] sex,m.[kuzaliwa_new] dbirth FROM [maombi_marekebisho_DPM] as m JOIN (select distinct mtihani,mwaka,cand_no, max(tarehe_ombi) dtare from maombi_marekebisho_DPM where [status]=2 and ina_sifa='ndio' group by mtihani,mwaka,cand_no ) as d on m.mwaka=d.mwaka and m.cand_no=d.cand_no and m.mtihani=d.mtihani and m.tarehe_ombi=d.dtare where m.[status] = 2 and ina_sifa='ndio';", con)
-                {
-                    CommandType = CommandType.Text
-                };
-                con2.Open();
-                SqlDataReader rdr2 = cmd2.ExecuteReader();
-                while (rdr2.Read())
-                {
-                    SifaNameModel2 db2 = new()
-                    {
-                        ExamName = rdr["mtihani"].ToString(),
-                        ExamYear = Convert.ToInt32(rdr["mwaka"]),
-                        ExamNumber = rdr["cand_no"].ToString(),
-                        Fname = rdr["fname"].ToString(),
-                        Oname = rdr["oname"].ToString(),
-                        Sname = rdr["sname"].ToString(),
-                        Sex = rdr["sex"].ToString().Trim(),
-                        Dbirth = rdr["dbirth"].ToString(),
-                        ExamType = GetType(rdr["mtihani"].ToString().Trim()),
-                        SifaTable = string.Format("tbl_{0}_particulars", rdr["mwaka"].ToString()),
-                        UserName = _username
-                    };
+                //using SqlConnection con2 = new(Setting.DecryptionMe(checkconn));
+                //SqlCommand cmd2 = new($"SELECT  m.[mtihani_sifa] mtihani,m.mwaka_sifa mwaka,m.[cand_no_sifa] cand_no,m.[fname_new] fname,m.[mname_new] oname,m.[lname_new] sname,m.[sex_new] sex,m.[kuzaliwa_new] dbirth FROM [maombi_marekebisho_DPM] as m JOIN (select distinct mtihani,mwaka,cand_no, max(tarehe_ombi) dtare from maombi_marekebisho_DPM where [status]=2 and ina_sifa='ndio' group by mtihani,mwaka,cand_no ) as d on m.mwaka=d.mwaka and m.cand_no=d.cand_no and m.mtihani=d.mtihani and m.tarehe_ombi=d.dtare where m.[status] = 2 and ina_sifa='ndio';", con2)
+                //{
+                //    CommandType = CommandType.Text
+                //};
+                //con2.Open();
+                //SqlDataReader rdr2 = cmd2.ExecuteReader();
+                //while (rdr2.Read())
+                //{
+                //    SifaNameModel2 db2 = new()
+                //    {
+                //        ExamName = rdr2["mtihani"].ToString(),
+                //        ExamYear = Convert.ToInt32(rdr2["mwaka"]),
+                //        ExamNumber = rdr2["cand_no"].ToString(),
+                //        Fname = rdr2["fname"].ToString(),
+                //        Oname = rdr2["oname"].ToString(),
+                //        Sname = rdr2["sname"].ToString(),
+                //        Sex = rdr2["sex"].ToString().Trim(),
+                //        Dbirth = rdr2["dbirth"].ToString(),
+                //        ExamType = GetType(rdr2["mtihani"].ToString().Trim()),
+                //        SifaTable = string.Format("tbl_{0}_particulars", rdr2["mwaka"].ToString()),
+                //        UserName = _username
+                //    };
 
-                    lstParticular2.Add(db2);
-                }
-                con2.Close();
-
+                //    lstParticular2.Add(db2);
+                //}
+                //con2.Close();
+               
             }
 
             return lstParticular;

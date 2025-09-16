@@ -257,6 +257,7 @@
 
     // private MudTable<SifaNameModel> _table;
     private List<SifaNameModel> names = new List<SifaNameModel>();
+   
     private IQueryable<SifaNameModel>? names2;
     // private IQueryable<SifaNameModel>? dnamelist;
     private HashSet<SifaNameModel> selectedItems = new HashSet<SifaNameModel>();
@@ -413,6 +414,7 @@
         if (transferOption == "4" || transferOption == "5")
         {
             names = await OlevelService.GetAllSqliteSifaNames(uname);
+           
             names2 = names.AsQueryable();
         }
 
@@ -1395,6 +1397,11 @@
                 try
                 {
                     var upcand = await SifaService.UpdateParticularNames(names[j].SifaTable, names[j].ExamNumber.Replace('-', '/'), names[j].ExamType, names[j].Fname.Replace("'", "''"), names[j].Oname.Replace("'", "''"), names[j].Sname.Replace("'", "''"), names[j].Sex, _username);
+                    if (names[j].ExamType!=0)
+                    {
+                        var upcand2 = await SifaService.UpdateParticularNames(names[j].SifaTable2, names[j].ExamNumber2.Replace('-', '/'), names[j].ExamType2, names[j].Fname.Replace("'", "''"), names[j].Oname.Replace("'", "''"), names[j].Sname.Replace("'", "''"), names[j].Sex, _username);
+                    }
+                    
 
                 }
                 catch (Exception exxe)
@@ -1413,6 +1420,7 @@
                 dlist = datalists.AsQueryable();
                 StateHasChanged();
             }
+
         }
 
         #endregion

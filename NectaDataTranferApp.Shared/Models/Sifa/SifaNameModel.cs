@@ -22,6 +22,12 @@ namespace NectaDataTransfer.Shared.Models.Sifa
         public string ExamNumber { get; set; }
         public int ExamYear { get; set; }
         public string SifaTable { get; set; }
+
+        public int ExamType2 { get; set; }
+        public string ExamName2 { get; set; }
+        public string ExamNumber2 { get; set; }
+        public int ExamYear2 { get; set; }
+        public string SifaTable2 { get; set; }
         public string EmisDB { get; set; }
         public string UserName { get; set; }
     }
