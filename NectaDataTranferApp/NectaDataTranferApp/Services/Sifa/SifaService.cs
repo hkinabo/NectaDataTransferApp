@@ -1245,7 +1245,7 @@ namespace NectaDataTransfer.Services.Sifa
                 {
                     MysqlParticularModel db = new()
                     {
-                        Id = Convert.ToInt32(rdr["Id"]),
+                        Id = Convert.ToInt64(rdr["Id"]),
                         tbl_exam_types_Id = Convert.ToInt32(rdr["tbl_exam_types_Id"]),
                         SzCandidatesNumber = rdr["szCandidatesNumber"].ToString(),
                         ExamYear = eyear
